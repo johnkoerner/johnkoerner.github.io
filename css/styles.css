@@ -123,7 +123,6 @@ header {
 }
 
 .name p {
-	font-family: 'Marck Script', cursive;
 	font-weight: normal;
 	font-size: 90px;
 	text-transform: capitalize;
@@ -282,7 +281,7 @@ span.intro_line2 {
 #work {
 	background: url(../img/work_bg.png) repeat;
 	width: 100%;
-	height: 900px;
+	height: 500px;
 	margin: 0 auto;
 	overflow: hidden;
 	z-index: 400;
@@ -326,20 +325,20 @@ span.intro_line2 {
 	margin-bottom: 30px;
 }
 
-.screenshot1 {
-	background: url("../img/screenshot1.png") no-repeat 0 0;
+.socialscale {
+	background: url("../img/socialscale.png") no-repeat 0 0;
 	width: 280px;
 	height: 180px;
 }
 
-.screenshot2 {
-	background: url("../img/screenshot2.png") no-repeat 0 0;
+.liftz {
+	background: url("../img/liftz.png") no-repeat 0 0;
 	width: 280px;
 	height: 180px;
 }
 
-.screenshot3 {
-	background: url("../img/screenshot3.png") no-repeat 0 0;
+.babyname {
+	background: url("../img/babyname.png") no-repeat 0 0;
 	width: 280px;
 	height: 180px;
 }
