@@ -15,9 +15,10 @@ wordpress_url: http://johnkoerner.com/?p=919
 date: '2014-10-01 02:47:31 -0400'
 date_gmt: '2014-10-01 02:47:31 -0400'
 categories:
-- C#
-- PowerShell
-tags: []
+- csharp
+tags:
+- csharp
+- powerShell
 ---
 <p>In the <a href="http://johnkoerner.com/csharp/creating-a-powershell-navigation-provider-2-basic-getchilditems-support/">second</a> post in this series, we covered the basics of acquiring children and outputting them to PowerShell. Next we are going to add some nested navigation and only allow users to navigate into tags that we know exist.</p>
 <p>First some administrative tasks. I decided to remove my custom C# Stackoverflow API that was very minimal and use something more robust. I went with <a href="https://github.com/emmettnicholas/StacMan">StacMan</a> and added it to the project using the nuget package. I then modified the existing code and views to work as before. I also changed the drive name to SO, to make it easier to type and to make it more relevant. With that out of the way, we can now forge ahead.</p>

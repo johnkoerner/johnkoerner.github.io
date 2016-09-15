@@ -11,9 +11,9 @@ date: '2013-01-13 01:45:51 -0500'
 date_gmt: '2013-01-13 01:45:51 -0500'
 permalink: "csharp/dragging-text-to-create-a-file/"
 categories:
-- C#
+- csharp
 tags:
-- C#
+- csharp
 - DragDrop
 ---
 <p>There was a recent <a href="http://stackoverflow.com/q/14293908/573218">question</a> on StackOverflow asking how to drag content from a rich text box and drop it into windows explorer to create a file. I did some digging and found that this was surprisingly easy to do. The thing to understand is that Explorer drag and drop expects the file to exist. So the solution I came up with was when the mouse leaves the RTB, if the left button is down, we save a temporary file and then setup the drag and drop.</p>

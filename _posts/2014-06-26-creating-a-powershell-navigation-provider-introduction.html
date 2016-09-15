@@ -15,9 +15,10 @@ wordpress_url: http://johnkoerner.com/?p=895
 date: '2014-06-26 12:33:54 -0400'
 date_gmt: '2014-06-26 12:33:54 -0400'
 categories:
-- C#
-- PowerShell
-tags: []
+- csharp
+tags:
+- csharp
+- powershell
 ---
 <p>PowerShell has some really nice ways that it can be extended. One of those ways is via <a href="http://msdn.microsoft.com/en-us/library/ee126186(v=vs.85).aspx">Providers</a>. If you open up PowerShell and call <code>Get-PSDrive</code> you will see a list of the drives on your machine along with some other providers to access things like the registry, certificate stores, and aliases. Using these providers is very similar to navigating a normal drive, for example, I can navigate around the registry by simply typing <code>cd HKCU:</code>. Now I can see items in the registry by typing <code>dir</code> and I see items in my registry (I used <code>dir | Format-Table -Property Name</code> for brevity):</p>
 <pre><code>Name

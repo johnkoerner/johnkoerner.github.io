@@ -15,10 +15,10 @@ wordpress_url: https://johnkoerner.com/?p=1017
 date: '2015-02-11 22:20:35 -0500'
 date_gmt: '2015-02-11 22:20:35 -0500'
 categories:
-- C#
+- csharp
 tags:
-- C#
-- CodeAnalysis
+- csharp
+- codeanalysis
 ---
 <p>I am a big fan of using Code Analysis (formerly FXCop) in my Visual Studio projects to help catch issues. Recently I ran across a <a href="https://msdn.microsoft.com/query/dev12.query?appId=Dev12IDEF1&amp;l=EN-US&amp;k=k%28CA2208%29;k%28TargetFrameworkMoniker-.NETFramework,Version%3Dv4.5.1%29&amp;rd=true">CA2208</a> warning that I needed to think about. Usually these are simple results of refactoring or forgetting to include the argument name in the ArgumentNullException or ArgumentOutOfRangeException. This one, however, was a little different. The value was passed to the exception constructor and the name was correct.</p>
 <p>The following code reproduces the issue (note this is C# 6 code written in the VS 2015 Preview leveraging the new <code>nameof</code> keyword):</p>
