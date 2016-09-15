@@ -1,0 +1,115 @@
+---
+layout: post
+status: publish
+published: true
+title: What does Environment.OSVersion return on Windows 10?
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1520
+wordpress_url: https://johnkoerner.com/?p=1520
+date: '2016-01-07 03:36:17 -0500'
+date_gmt: '2016-01-07 03:36:17 -0500'
+categories:
+- C#
+- vs2015
+tags:
+- C#
+- vs2015
+- Visual Studio 2015
+- Visual Studio
+- update1
+---
+<p>Unfortunately, the answer is, it depends.</p>
+<p>Consider the following code:</p>
+<pre><code>Console.WriteLine(Environment.OSVersion.ToString());
+</code></pre>
+<p>Depending how you execute the code, you may get differing results:</p>
+<table>
+<thead>
+<tr>
+<th>
+        Visual Studio Version
+      </th>
+<th>
+        Project Type
+      </th>
+<th>
+        Output
+      </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+        2015 Update 1
+      </td>
+<td>
+        Console App
+      </td>
+<td>
+        <code>Microsoft Windows NT 6.2.9200.0</code>
+      </td>
+</tr>
+<tr>
+<td>
+        2015 Update 1
+      </td>
+<td>
+        Unit Test
+      </td>
+<td>
+        <code>Microsoft Windows NT 10.0.10586.0</code>
+      </td>
+</tr>
+<tr>
+<td>
+        2015 (No update 1)
+      </td>
+<td>
+        Console App
+      </td>
+<td>
+        <code>Microsoft Windows NT 6.2.9200.0</code>
+      </td>
+</tr>
+<tr>
+<td>
+        2015 (No update 1)
+      </td>
+<td>
+        Unit Test
+      </td>
+<td>
+        <code>Microsoft Windows NT 6.2.9200.0</code>
+      </td>
+</tr>
+</tbody>
+</table>
+<p>So, how can we get our console application to be consistent with the test application in VS 2015 update 1? The key is manifest files. According to the <a href="https://msdn.microsoft.com/en-us/library/windows/desktop/ms724832(v=vs.85).aspx">Operating System Version</a> documentation:</p>
+<blockquote>
+<p>For applications that have been manifested for Windows 8.1 or Windows 10. Applications not manifested for Windows 8.1 or Windows 10 will return the Windows 8 OS version value (6.2). To manifest your applications for Windows 8.1 or Windows 10, refer to <a href="https://msdn.microsoft.com/en-us/library/windows/desktop/dn481241(v=vs.85).aspx">Targeting your application for Windows</a>.</p>
+</blockquote>
+<p>So we can add a manifest file to our console application to specify Windows 10 compatibility:</p>
+<pre><code>&lt;?xml version="1.0" encoding="utf-8"?&gt;
+&lt;assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1"&gt;
+  &lt;assemblyIdentity version="1.0.0.0" name="MyApplication.app"/&gt;
+  &lt;compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1"&gt;
+    &lt;application&gt;
+      &lt;!-- Windows 10 --&gt;
+      &lt;supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}" /&gt;
+    &lt;/application&gt;
+  &lt;/compatibility&gt;
+&lt;/assembly&gt;
+</code></pre>
+<p>Now, when we run the console application, we get the output of <code>Microsoft Windows NT 10.0.10586.0</code></p>
+<p>So, what changed in Visual Studio 2015 Update 1? This is speculation, but I am guessing they added a manifest to the executable the runs the unit tests behind the scenes, which caused the Environment.OSVersion to return the new value for Windows 10. As the documentation states:</p>
+<blockquote>
+<p>Identifying the current operating system is usually not the best way to determine whether a particular operating system feature is present. This is because the operating system may have had new features added in a redistributable DLL. Rather than using the Version API Helper functions to determine the operating system platform or version number, test for the presence of the feature itself.</p>
+</blockquote>
+<p>So, if you plan on using <code>Enivronment.OSVersion</code> in the future, be sure to understand the different values it could return depending on how the code is hosted.</p>
+<p><em>Image Credit <a href="https://flic.kr/p/cixr6q">Les Haines</a> via <a href="https://creativecommons.org/licenses/by/2.0/">Creative Commons</a></em></p>

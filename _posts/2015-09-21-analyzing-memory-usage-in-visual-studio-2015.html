@@ -1,0 +1,53 @@
+---
+layout: post
+status: publish
+published: true
+title: Analyzing Memory Usage in Visual Studio 2015
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1406
+wordpress_url: https://johnkoerner.com/?p=1406
+date: '2015-09-21 02:20:01 -0400'
+date_gmt: '2015-09-21 02:20:01 -0400'
+categories:
+- C#
+tags:
+- C#
+- vs2015
+- Visual Studio 2015
+- Visual Studio
+---
+<p>The new diagnostic tools in <a href="http://blogs.msdn.com/b/visualstudioalm/archive/2015/07/20/performance-and-diagnostic-tools-in-visual-studio-2015.aspx">Visual Studio 2015</a>, provide a great deal of troubleshooting tools to help debug various problems in your application. One piece that I think is really nice is the memory usage information and the ability to snapshot memory and compare differences. If you are trying to location a memory leak in a certain area of code, you can take a snapshot before and after running the code and see the delta of objects and their sizes.</p>
+<p>Let's create a simple example that never frees up memory to show how we can use these tools. We'll continually create strings in a loop and add them to a hashset, never freeing them. Our string in <code>y</code> is going to continue to grow the more times the loop is executed.</p>
+<pre><code>static void Main(string[] args)
+{
+    var strings = new HashSet&lt;string&gt;();
+    string y = "";
+    for (int i=0; i&lt;50000; i++)
+    {
+        y = y + i.ToString();
+        strings.Add(y);
+
+        Console.WriteLine(i);
+        System.Threading.Thread.Sleep(1);
+    }
+} 
+</code></pre>
+<p>Now, if I start the application, the Diagnostics Tools window appears and within 10 seconds, my application is already consuming 150MB of RAM and growing quickly.</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2015/09/DiagnosticTools.png" alt="DiagnosticTools" width="557" height="398" class="alignnone size-full wp-image-1407" /></p>
+<p>If you open the <code>Memory Usage</code> tab, you'll see a button that allows you to take snapshots. If you click this a few times, you'll get a few memory snapshots. These are indicated by blue triangles in the memory graph. You'll also see them listed in below the <code>Take Snapshot</code> button.</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2015/09/DiagnosticToolsWithSnapshots.png" alt="DiagnosticToolsWithSnapshots" width="442" height="547" class="alignnone size-full wp-image-1408" /></p>
+<p>Inisde the list of memory snapshots, you'll notice that Objects and Heapsize columns have blue text, which is clickable. This will take you into a detail view for the snapshot. For the Objects view, you will see all of the object types that are in memory and metrics around the number and size of objects. You can sort by the column headers to find if you have a lot of small objects that add up to a lot of memory or one large object eating it all up. In our example, if I sort by size, it's very obvious what the culprit is.</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2015/09/HeapObjects.png" alt="HeapObjects" width="828" height="237" class="alignnone size-full wp-image-1409" /></p>
+<p>Inside this view, there is also the <code>Compare To</code> drop down, which allows you to compare the current snapshot to another snapshot to see the deltas between the two snapshots. So, if I select a previous snapshot, I get some additional columns that provide the differences from the baseline snapshot to the currently selected snapshot. Again, in my example it is very obvious which object is growing, but these deltas may be very useful when the leak is not so obvious.</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2015/09/HeapObjectsWithBaseline.png" alt="HeapObjectsWithBaseline" width="829" height="299" class="alignnone size-full wp-image-1410" /></p>
+<p>You can double click on any object in the snapshot and drill into it further. You'll see that there are <code>Paths to Root</code> and <code>Referenced Types</code> views available. The <code>Paths To Root</code> view gives you the ability to figure out what is holding on to your object and the reference counts. This view lets you walk up the entire parent tree of objects that have references. This may help you figure out the root cause of what object isn't being released that needs to be.</p>
+<p>The <code>Referenced Types</code> view is a downward view of all of the objects that this object is holding on to. Since our example involves a <code>HashSet</code>, we can see all of the instances of the strings that it is holding on to. If you pause the program and use a snapshot of the current state of the program, you can even see the values inside the objects inside the HashSet.</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2015/09/ReferencedObjects.png" alt="ReferencedObjects" width="821" height="230" class="alignnone size-full wp-image-1412" /></p>
+<p>As you can see, inside that little diagnostic tools dialog, there are a lot of really nice features that can make tracking down memory problems just a little bit easier. Do you have a tip on using the diagnostic tools? If so, leave a comment below.</p>
+<p><em>Image Credit: <a href="https://flic.kr/p/5Eic5T">Aaron Escobar</a> via <a href="https://creativecommons.org/licenses/by/2.0/">Creative Commons</a></em></p>

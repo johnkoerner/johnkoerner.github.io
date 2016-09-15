@@ -1,0 +1,80 @@
+---
+layout: post
+status: publish
+published: true
+title: Analyzing Indexers using Roslyn
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1417
+wordpress_url: https://johnkoerner.com/?p=1417
+date: '2015-09-28 03:14:19 -0400'
+date_gmt: '2015-09-28 03:14:19 -0400'
+categories:
+- C#
+- Code Analysis
+tags:
+- C#
+- Code Analysis
+- roslyn
+- Visual Studio 2015
+---
+<p>I've occasionally come across code that just really bothers me. One such case that I have seen is the abuse of indexers. I have seen some programmers use this as a "free" method call that doesn't require a name. They load it up with parameters and it just doesn't feel right. For example, some code that looks like this:</p>
+<pre><code>public int this[string s, int i, long l]
+{
+    get
+    {
+        // Do some weird stuff here
+        return s.GetHashCode();
+    }
+}
+</code></pre>
+<p>This code is perfectly legal C#, but can be very confusing for someone coming into the code for the first time. Let's create an analyzer that raises a diagnostic any time there is more than one parameter to the indexer to mitigate the creation of this monstrosity. To start, we'll register a <code>SyntaxNodeAction for</code>SyntaxKind.IndexerDeclaration` nodes.</p>
+<pre><code>public override void Initialize(AnalysisContext context)
+{
+    context.RegisterSyntaxNodeAction((syntaxNodeContext) =&gt;
+    {
+    }, SyntaxKind.IndexerDeclaration);
+}
+</code></pre>
+<p>Next, we can get the node and check the <code>ParameterList.Parameters</code> and check the <code>Count</code> on that object.</p>
+<pre><code>var node = syntaxNodeContext.Node as IndexerDeclarationSyntax;
+
+if (node == null)
+    return;
+
+var paramCount = node.ParameterList.Parameters.Count();
+</code></pre>
+<p>Finally, we can raise a diagnostic if the parameter count is greater than 1. We'll also extract the class name from the indexer's parent, to provide a more meaningful diagnostic message.</p>
+<pre><code>if (paramCount &gt; 1)
+{
+    var className = (node.Parent as ClassDeclarationSyntax)?.Identifier.ToFullString().Trim();
+    syntaxNodeContext.ReportDiagnostic(Diagnostic.Create(Rule, node.ThisKeyword.GetLocation(), className));
+}
+</code></pre>
+<p>So, the full diagnostic looks like this:</p>
+<pre><code>public override void Initialize(AnalysisContext context)
+{
+    context.RegisterSyntaxNodeAction((syntaxNodeContext) =&gt;
+    {
+        var node = syntaxNodeContext.Node as IndexerDeclarationSyntax;
+
+        if (node == null)
+            return;
+
+        var paramCount = node.ParameterList.Parameters.Count();
+
+        if (paramCount &gt; 1)
+        {
+            var className = (node.Parent as ClassDeclarationSyntax)?.Identifier.ToFullString().Trim();
+            syntaxNodeContext.ReportDiagnostic(Diagnostic.Create(Rule, node.ThisKeyword.GetLocation(), className));
+        }
+    }, SyntaxKind.IndexerDeclaration);
+}
+</code></pre>
+<p>As you can see, once you know how to create an analyzer, you can easily create them to ensure the code you and your team are writing follow certain standards. You can also start creating a suite of standards that you like to follow to ensure you don't fall into any bad habits.</p>
+<p><em>Image Credit: <a href="https://flic.kr/p/a6ND3Y">Tom Woodward</a> via [Creative Commons]</em>(https://creativecommons.org/licenses/by-sa/2.0/)</p>

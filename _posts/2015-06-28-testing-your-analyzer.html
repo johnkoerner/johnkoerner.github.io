@@ -1,0 +1,87 @@
+---
+layout: post
+status: publish
+published: true
+title: Testing Your Analyzer
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1133
+wordpress_url: https://johnkoerner.com/?p=1133
+date: '2015-06-28 03:24:33 -0400'
+date_gmt: '2015-06-28 03:24:33 -0400'
+categories:
+- C#
+- Code Analysis
+- Testing
+- Roslyn
+tags: []
+---
+<p>As we all know, unit tests are a requirement of modern day development and writing unit tests for your analyzers couldn't be easier. There are a lot of helper methods provided by the Roslyn team to get you going, so there is no excuse to not test your analyzer.</p>
+<p>In the <a href="https://johnkoerner.com/csharp/creating-your-first-code-analyzer/">Creating Your First Analyzer</a> post, we discussed how to use the templates to create your first analyzer. When you used the template, one of the projects created is the <code>MyFirstAnalyzer.Test</code> project. If you look at the <code>UnitTests.cs</code> file, you'll notice there are two tests and a couple of methods that are overridden. You'll also notice that this test class derives from the <code>CodeFixVerifier</code> base class. If you only wanted to test your diagnostics, you can simply derive from the <code>DiagnosticVerifier</code> base class.</p>
+<p>To start, lets look at the overridden methods:</p>
+<pre><code>protected override CodeFixProvider GetCSharpCodeFixProvider()
+{
+    return new MyFirstAnalyzerCodeFixProvider();
+}
+
+protected override DiagnosticAnalyzer GetCSharpDiagnosticAnalyzer()
+{
+    return new MyFirstAnalyzerAnalyzer();
+}
+</code></pre>
+<p>The purpose of these two methods are to provide the base class with instances of the implementation of your diagnostic and verifier, so they can be tested. Failure to override these methods will result in failures when making the call to verify the diagnostic and code fix.</p>
+<p>The other two methods in this class are unit tests. One is a negative test, ensuring the diagnostic does not trigger on a blank file. The other is a test that verifies the diagnostic is triggered at the correct location and it also executes the code fix and ensures that the fixed code matches the desired result. Let's start by looking into the portion that tests the diagnostic:</p>
+<pre><code>        var test = @"
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Diagnostics;
+
+namespace ConsoleApplication1
+{
+    class TypeName
+    {   
+    }
+}";
+        var expected = new DiagnosticResult
+        {
+            Id = MyFirstAnalyzerAnalyzer.DiagnosticId,
+            Message = String.Format("Type name '{0}' contains lowercase letters", "TypeName"),
+            Severity = DiagnosticSeverity.Warning,
+            Locations =
+                new[] {
+                        new DiagnosticResultLocation("Test0.cs", 11, 15)
+                    }
+        };
+
+        VerifyCSharpDiagnostic(test, expected);
+</code></pre>
+<p>As you can see, the code being tested is simply passed as a string to the <code>VerifyCSharpDiagnostic</code> method. The <code>DiagnosticResult</code> is created as the expectation for the output of the diagnostic. One thing I would change about this default behavior is that the Message string is hard-coded here as well as in the diagnostic. It may be better to share the strings across both the test and diagnostic, but that is a personal preference. Running the <code>VerifyCSharpDiagnostic</code> will ensure that the correct diagnostics are triggered at the expected locations.</p>
+<p>Once we have verified that the diagnostics is triggered, we can also verify that the codefix works. So, in this example, the code fix code is very straightforward:</p>
+<pre><code>        var fixtest = @"
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Diagnostics;
+
+namespace ConsoleApplication1
+{
+    class TYPENAME
+    {   
+    }
+}";
+        VerifyCSharpFix(test, fixtest);
+</code></pre>
+<p>As you can see, it creates the desired code as a string and then passes in the original code and the desired code to the <code>VerifyCSharpFix</code> method. This method will verify that the passed in original code is correctly transformed to the fixed code after the code fix is applied.</p>
+<p>Note: If you are working with Visual Basic code, you can use the equivalent <code>VerifyBasicDiagnostic</code> and <code>VerifyBasicFix</code> methods to test Visual Basic code. This can be very useful in cases where your diagnostic or code fix will result in different behavior for VB.Net code.</p>
+<p>As you can see, writing tests for analyzers is very straightforward and (as usual) the Roslyn team has provided great tooling for getting your unit tests up an running very quickly.</p>
+<p>Image Credit: <a href="https://www.flickr.com/photos/albertogp123/5843577306">Alberto G.</a> via <a href="https://creativecommons.org/licenses/by/2.0/">Creative Commons</a></p>

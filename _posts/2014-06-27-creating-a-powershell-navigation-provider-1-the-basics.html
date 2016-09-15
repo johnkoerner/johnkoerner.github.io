@@ -1,0 +1,119 @@
+---
+layout: post
+status: publish
+published: true
+title: 'Creating a PowerShell Navigation Provider: #1 The Basics'
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 899
+wordpress_url: http://johnkoerner.com/?p=899
+date: '2014-06-27 00:59:19 -0400'
+date_gmt: '2014-06-27 00:59:19 -0400'
+categories:
+- C#
+- PowerShell
+tags: []
+---
+<p>This post will cover the basics of getting your environment setup to create a PowerShell navigation provider. All of the code is available on <a href="https://github.com/johnkoerner/PowershellProvider">GitHub</a>. I have created a <a href="https://github.com/johnkoerner/PowershellProvider/tree/v0.1">v0.1</a> tag which represents the code that will be covered in this post.</p>
+<ul>
+<li>Create a new <code>Class Library</code> project in Visual Studio. </li>
+<li>
+<p>Add a reference to <code>System.Management.Automation</code> from the <code>C:\Program Files (x86)\Reference Assemblies\Microsoft\WindowsPowerShell\3.0</code> directory.</p>
+</li>
+<li>
+<p>Modify your project debug settings to start an external program and start <code>C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe</code></p>
+</li>
+<li>
+<p>Add a CmdletProvider attribute to your class, have it inherit from <code>NavigationCmdletProvider</code> and implement the required members:</p>
+<pre><code>[CmdletProvider("MyPowerShellProvider", ProviderCapabilities.None)]
+public class MyProvider : NavigationCmdletProvider
+{
+    protected override bool IsValidPath(string path)
+    {
+        return true;  // All paths are valid for now
+    }
+}
+</code></pre>
+</li>
+</ul>
+<p>The next thing we will do is create a script to install the provider when we start debugging.</p>
+<ul>
+<li>
+<p>Add a new file to the project and call it InstallProvider.ps1. This installs our PowerShell module into the current PowerShell session. The contents of the file are:</p>
+<pre><code>Import-Module .\PowerShellProvider.dll
+</code></pre>
+</li>
+<li>
+<p>Set the <code>Copy to Output Directory</code> property to <code>Copy if newer</code> on the file.</p>
+</li>
+<li>
+<p>You can manually run this file every time you start PowerShell or you can update your debug settings and add the following to the command line arguments:</p>
+<pre><code>-NoExit  -File .\InstallProvider.ps1
+</code></pre>
+</li>
+</ul>
+<p>Now we can start implementing the overrides we need to get the provider working. The first method you want to implement is the <a href="http://msdn.microsoft.com/en-us/library/system.management.automation.provider.drivecmdletprovider.initializedefaultdrives%28v=vs.85%29.aspx"><code>InitializeDefaultDrives</code></a>. This method is called when you install the provider and will pre-create drives so users don't need to explicitly call <code>New-Drive</code>.</p>
+<pre><code>protected override Collection&lt;PSDriveInfo&gt; InitializeDefaultDrives()
+{
+    PSDriveInfo drive = new PSDriveInfo("MyDrive", this.ProviderInfo, "", "", null);
+    Collection&lt;PSDriveInfo&gt; drives = new Collection&lt;PSDriveInfo&gt;() {drive};
+    return drives;      
+}
+</code></pre>
+<p>At this point you can start debugging and if you call <code>Get-PSDrive</code>, you will see the drive, but you will not be able to navigate to it. Let's fill out a few more overrides, so we can navigate to our provider. To start, we will allow the user to navigate to any folder they type in. We will implement <a href="http://msdn.microsoft.com/en-us/library/system.management.automation.provider.itemcmdletprovider.itemexists%28v=vs.85%29.aspx"><code>ItemExists</code></a> and <a href="http://msdn.microsoft.com/en-us/library/system.management.automation.provider.navigationcmdletprovider.isitemcontainer%28v=vs.85%29.aspx"><code>IsItemContainer</code></a>:</p>
+<pre><code>protected override bool ItemExists(string path)
+{
+    return true;
+}
+
+protected override bool IsItemContainer(string path)
+{
+    return true;
+}
+</code></pre>
+<p>Now when you debug, you can navigate into the drive by typing <code>cd MyDrive:</code> and you can change folders to your heart's content. You'll notice if you type <code>dir</code> you still get an error. Let's fix that. Simply override the <a href="http://msdn.microsoft.com/en-us/library/system.management.automation.provider.containercmdletprovider.getchilditems%28v=vs.85%29.aspx"><code>GetChildItems</code></a> method:</p>
+<pre><code>protected override void GetChildItems(string path, bool recurse)
+{
+    WriteItemObject("Hello", "Hello", true);
+} 
+</code></pre>
+<p>Now, you can navigate around and when you type dir, you will always get back your <code>Hello</code> object. Congratulations, you have a working navigation provider. In the next post in this series we will wire up the provider to a backend API and return custom objects instead of just strings.</p>
+<p>The full code for the provider is:</p>
+<pre><code>[CmdletProvider("MyPowerShellProvider", ProviderCapabilities.None)]
+public class MyPowerShellProvider : NavigationCmdletProvider
+{
+
+    protected override bool IsValidPath(string path)
+    {
+        return true;
+    }
+
+    protected override Collection&lt;PSDriveInfo&gt; InitializeDefaultDrives()
+    {
+        PSDriveInfo drive = new PSDriveInfo("MyDrive", this.ProviderInfo, "", "", null);
+        Collection&lt;PSDriveInfo&gt; drives = new Collection&lt;PSDriveInfo&gt;() {drive};
+        return drives;
+    }
+
+    protected override bool ItemExists(string path)
+    {
+        return true;
+    }
+
+    protected override bool IsItemContainer(string path)
+    {
+        return true;
+    }
+
+    protected override void GetChildItems(string path, bool recurse)
+    {
+        WriteItemObject("Hello", "Hello", true);
+    }
+}
+</code></pre>
+<p>You now have the most basic of basic providers available to you.  In the next <a href="http://johnkoerner.com/csharp/creating-a-powershell-navigation-provider-2-basic-getchilditems-support/">article</a>, I cover the basics of getting GetChildItems() working to return something more real and more readable.</p>

@@ -1,0 +1,53 @@
+---
+layout: post
+status: publish
+published: true
+title: Parallel Test Execution in Visual Studio 2015 Update 1 Might Not Be What You
+  Expect
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1500
+wordpress_url: https://johnkoerner.com/?p=1500
+date: '2015-12-03 02:37:56 -0500'
+date_gmt: '2015-12-03 02:37:56 -0500'
+categories:
+- vs2015
+- mstest
+tags:
+- C#
+- Code Analysis
+- vs2015
+- Visual Studio 2015
+- update1
+---
+<p>In the <a href="https://www.visualstudio.com/en-us/news/vs2015-update1-vs.aspx">Update 1</a> of Visual Studio 2015, it was announced that MSTest will support running unit tests in parallel. I decided to give this a shot and see exactly how it worked. I started by writing 8 unit tests that all looked like this:</p>
+<pre><code>[TestMethod]
+public async Task TestMethod7()
+{
+    Console.WriteLine("1");
+    await Task.Delay(5000);
+}
+</code></pre>
+<p>Next, I added the RunSettings file to my project with a MaxCpuCount of 6:</p>
+<pre><code>&lt;?xml version='1.0' encoding='utf-8'?&gt;
+&lt;RunSettings&gt;
+  &lt;RunConfiguration&gt;
+    &lt;MaxCpuCount&gt;6&lt;/MaxCpuCount&gt;
+  &lt;/RunConfiguration&gt;
+&lt;/RunSettings&gt;
+</code></pre>
+<p>Finally, I selected my run settings file from the Test Settings Menu:</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2015/12/SelectTestSettings.png" alt="SelectTestSettings" width="546" height="225" class="alignnone size-full wp-image-1502" /></p>
+<p>I ran it and all of my tests still ran in serial. I thought maybe I had done something wrong or perhaps hit a bug with the new feature, so I returned to the update 1 announcement and found my answer. It states:</p>
+<blockquote>
+<p>Parallel test execution leverages the available cores on the machine, and is realized by launching the test execution engine on each available core as a distinct process, and <strong>handing it a container (assembly, DLL, or relevant artifact containing the tests to execute)</strong>, worth of tests to execute.</p>
+</blockquote>
+<p>The separate container bit is the piece I was missing. In order to get my tests to run in parallel, I needed to split up my tests into separate test assemblies. After doing that, I saw that the tests in different assemblies were running in parallel.</p>
+<p>The distinction of tests running in parallel across assemblies is a subtle point that may cause confusion if you think just setting the MaxCpuCount in a run settings file is going to give you benefit on a single test assembly. Overall, I am glad to see that Microsoft is still improving MSTest and hopefully they continue to add features that will allow us to better parallelize our testing.</p>
+<p><strong>Update (2016-06-15)</strong> - I create a sample set of tests on <a href="https://github.com/johnkoerner/VS2015ParallelUnitTests">GitHub</a> to better demonstrate this functionality.</p>
+<p><em>Image Credit: <a href="https://www.flickr.com/photos/albertogp123/5843577306">Alberto G.</a> via <a href="https://creativecommons.org/licenses/by/2.0/">Creative Commons</a></em></p>

@@ -1,0 +1,37 @@
+---
+layout: post
+status: publish
+published: true
+title: Creating a PowerShell Module to Restart Explorer.exe
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 884
+wordpress_url: http://johnkoerner.com/?p=884
+date: '2014-05-13 23:04:45 -0400'
+date_gmt: '2014-05-13 23:04:45 -0400'
+categories:
+- PowerShell
+tags: []
+---
+<p>I've been doing a fair bit of development lately with Shell Extensions and have to constantly restart my explorer.exe process. Quickly, I found that I could do this through powershell using the <code>Stop-Process</code> commandlet.</p>
+<pre><code>Stop-Process -ProcessName explorer
+</code></pre>
+<p>This was easy enough to type, but I found myself doing it quite a bit and wanted it to be quicker and easier to remember. I had wanted to learn more about PowerShell <a href="http://msdn.microsoft.com/en-us/library/dd878324%28v=vs.85%29.aspx">modules</a>, so I figure this is as good of a time as any to try it out.</p>
+<p>By default PowerShell will look in your <code>%AppProfile%\Documents\WindowsPowerShell\Modules</code> folder for any modules that should be loaded when you start a new shell. (If you want to see all the places it looks, you can look at the <code>$env:PSModulePath</code> variable) From there, each module will have its own folder. So I created a <code>RestartExplorer</code> folder and created a <code>RestartExplorer.psm1</code> file which contains my module code:</p>
+<pre><code>function Restart-Explorer()
+{
+    Stop-Process -ProcessName explorer
+}
+
+Set-alias re Restart-Explorer
+Export-ModuleMember -Function Restart-Explorer -Alias re
+</code></pre>
+<p>Now when I type <code>re</code>, explorer restarts for me. A few things to note in this script. The <code>Export-ModuleMember</code> commandlet tells PowerShell which components from this script should be available to the shell. If I did not include the <code>-Alias re</code> then <code>re</code> would not work from the shell window. If you have a lot of functions and aliases you want to export from a module, you could simply export them all using wildcards:</p>
+<pre><code>Export-ModuleMember -Function * -Alias *
+</code></pre>
+<p>While this is a simple example, it shows how easy it is to write modules in PowerShell and have them "just work" once you set them up.</p>

@@ -1,0 +1,28 @@
+---
+layout: post
+status: publish
+published: true
+title: CPU Profiling in Visual Studio 2015 Update 1
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1471
+wordpress_url: https://johnkoerner.com/?p=1471
+date: '2015-11-10 02:52:44 -0500'
+date_gmt: '2015-11-10 02:52:44 -0500'
+categories:
+- C#
+tags: []
+---
+<p>In the past, I have covered the <a href="https://johnkoerner.com/csharp/using-the-diagnostics-tools-in-visual-studio-2015-video/">Diagnostics Tools</a> and all of the new features that are available in VS 2015. With the upcoming release of <a href="https://www.visualstudio.com/en-us/news/vs2015-update1-vs.aspx#debug">update 1</a>, some new features are being added to the diagnostics tools.</p>
+<p>When you open the diagnostics tools, you'll notice the CPU Usage tab now shows you information like the Total CPU % and Self CPU %.</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2015/11/DiagnosticToolsCPU.png" alt="DiagnosticToolsCPU" width="934" height="664" class="alignnone size-full wp-image-1474" /></p>
+<p>The total CPU % covers the method and all child methods that it calls, while the self CPU is limited to only the code within the method, excluding all child calls. Using these values you can quickly determine what are your most costly functions in terms of CPU %.</p>
+<p>The CPU percentage also works with the range selection in diagnostics tools window. So, if you want to just hone in on one section of your app where the CPU is spiking, this tool allows you to do this.</p>
+<p>[video width="1028" height="580" mp4="https://johnkoerner.com/wp-content/uploads/2015/11/DiagnosticToolsWithCPU.mp4"][/video]</p>
+<p>Overall, I think this is a great addition to Visual Studio and I can't wait to see how people use it. If you want more in depth information on the new CPU features in the diagnostics tools, Nikhil Joglekar has a <a href="http://blogs.msdn.com/b/visualstudioalm/archive/2015/10/28/profile-your-cpu-in-the-debugger-in-visual-studio-2015.aspx">blog post</a> that covers it in quite a bit of detail.</p>
+<p><em>Image Credit: <a href="https://flic.kr/p/5Eic5T">Aaron Escobar</a> via <a href="https://creativecommons.org/licenses/by/2.0/">Creative Commons</a></em></p>

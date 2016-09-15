@@ -1,0 +1,141 @@
+---
+layout: post
+status: publish
+published: true
+title: Analyzing the Order of Method Calls
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1342
+wordpress_url: https://johnkoerner.com/?p=1342
+date: '2015-08-26 03:08:41 -0400'
+date_gmt: '2015-08-26 03:08:41 -0400'
+categories:
+- C#
+- Code Analysis
+- Roslyn
+tags:
+- C#
+- Code Analysis
+- roslyn
+- Visual Studio 2015
+---
+<p>Recently there was a <a href="http://stackoverflow.com/q/32076495/573218">question</a> on StackOverflow that piqued my interest. The question was basically asking how an analyzer could ensure that one method on an instance was called prior to calling another method on an instance.</p>
+<p>An example of this would be if you wanted to ensure you called the <code>HasValue</code> method on a <code>System.Nullable</code> before you called the <code>Value</code> property. I provided an <a href="http://stackoverflow.com/a/32173917/573218">answer</a> to the question, but let's dig a little deeper here.</p>
+<p>Since we want to look at <code>System.Nullable</code>, we'll first need to get that type to check it against variable types when doing our analysis. To do this, we will register an action to run on compilation start, as I demonstrated in the <a href="https://johnkoerner.com/csharp/working-with-types-in-your-analyzer/">Working with Types in Your Analyzer</a> post. We'll also register a syntax node action to analyze all <code>MethodDeclaration</code> nodes.</p>
+<pre><code>context.RegisterCompilationStartAction((compilationStartContext) =&gt;
+{
+    var nullableType = compilationStartContext.Compilation.GetTypeByMetadataName("System.Nullable`1");
+    compilationStartContext.RegisterSyntaxNodeAction((analysisContext) =&gt;
+    {
+        // ...
+    }, SyntaxKind.MethodDeclaration);
+});
+</code></pre>
+<p>Next, we will capture all <code>MemberAccessExpressionSyntax</code> nodes from the method, which will give us all nodes where an object is accessed (i.e. method calls, property calls, field accesses, ...).</p>
+<pre><code>var invocations =
+    analysisContext.Node.DescendantNodes().OfType&lt;MemberAccessExpressionSyntax&gt;();
+</code></pre>
+<p>We'll also create a <code>HashSet&lt;string&gt;</code> to keep track of all the <code>HasValue</code> calls for a given variable.</p>
+<pre><code>var hasValueCalls = new HashSet&lt;string&gt;();
+</code></pre>
+<p>Now we can iterate over the invocations to keep track of the <code>HasValue</code> and <code>Value</code> calls. To start, we check if the <code>Expression on the invocation is an</code>IdentifierNameSyntax`:</p>
+<pre><code>foreach (var invocation in invocations)
+{
+    var e = invocation.Expression as IdentifierNameSyntax;
+
+    if (e == null)
+        continue;
+
+    //...
+}
+</code></pre>
+<p>Next we will use the Semantic Model to get the type information from the expression. To do this we simply, call the <code>GetTypeInfo</code> method on the SemanticModel:</p>
+<pre><code>var typeInfo = analysisContext.SemanticModel.GetTypeInfo(e).Type as INamedTypeSymbol;
+</code></pre>
+<p>We now have the type info, so we will check that it is a <code>System.Nullable</code> type. Since all base nullable types (i.e. <code>int?</code>, <code>bool?</code>, ...) are constructed from the <code>System.Nullable</code> type, we can use the <code>nullableType</code> we captured earlier to verify the type.</p>
+<pre><code>if (typeInfo?.ConstructedFrom == null)
+    continue;
+
+if (!typeInfo.ConstructedFrom.Equals(nullableType))
+    continue;
+</code></pre>
+<p>At this point, we know that the variable is a <code>System.Nullable</code>, so we can now check if the invocation is a <code>HasValue</code> or a <code>Value</code> call. If it is a <code>HasValue</code> call, we will add that variable to our HashSet, so we know that <code>HasValue</code> has been called on this variable.</p>
+<pre><code>string variableName = e.Identifier.Text;
+
+if (invocation.Name.ToString() == "HasValue")
+{
+    hasValueCalls.Add(variableName);
+}
+</code></pre>
+<p>Finally, we can check the <code>Value</code> calls and see if there was a previous <code>HasValue</code> call for the variable name. If not, we can raise a diagnostic.</p>
+<pre><code>if (invocation.Name.ToString() == "Value")
+{
+    if (!hasValueCalls.Contains(variableName))
+    {
+        analysisContext.ReportDiagnostic(Diagnostic.Create(Rule, e.GetLocation()));
+    }
+}
+</code></pre>
+<p>So now, if we try some code against this analyzer, we will see the following code raise a diagnostic:</p>
+<pre><code>int? x = null;
+var n = x.Value;  
+</code></pre>
+<p>While the following code will not raise a diagnostic:</p>
+<pre><code>int? x = null;
+if (x.HasValue)
+{
+    var n = x.Value;
+}
+</code></pre>
+<p>In the end, the full diagnostic is:</p>
+<pre><code>public override void Initialize(AnalysisContext context)
+{
+    context.RegisterCompilationStartAction((compilationStartContext) =&gt;
+    {
+        var nullableType = compilationStartContext.Compilation.GetTypeByMetadataName("System.Nullable`1");
+        compilationStartContext.RegisterSyntaxNodeAction((analysisContext) =&gt;
+        {
+            var invocations =
+                analysisContext.Node.DescendantNodes().OfType&lt;MemberAccessExpressionSyntax&gt;();
+            var hasValueCalls = new HashSet&lt;string&gt;();
+            foreach (var invocation in invocations)
+            {
+                var e = invocation.Expression as IdentifierNameSyntax;
+
+                if (e == null)
+                    continue;
+
+                var typeInfo = analysisContext.SemanticModel.GetTypeInfo(e).Type as INamedTypeSymbol;
+
+                if (typeInfo?.ConstructedFrom == null)
+                    continue;
+
+                if (!typeInfo.ConstructedFrom.Equals(nullableType))
+                    continue;
+
+                string variableName = e.Identifier.Text;
+
+                if (invocation.Name.ToString() == "HasValue")
+                {
+                    hasValueCalls.Add(variableName);
+                }
+
+                if (invocation.Name.ToString() == "Value")
+                {
+                    if (!hasValueCalls.Contains(variableName))
+                    {
+                        analysisContext.ReportDiagnostic(Diagnostic.Create(Rule, e.GetLocation()));
+                    }
+                }
+            }
+        }, SyntaxKind.MethodDeclaration);
+    });
+}
+</code></pre>
+<p>Getting the order of method calls can be a bit tricky, but once you work out the logic and the syntax nodes that you need to process, the work to be done becomes clear. If you have a story of an analyzer you wrote that does something similar, share it in the comments below.</p>
+<p><em>Image Credit: <a href="https://flic.kr/p/gBDxXi">Sebastien Wiertz</a> via <a href="https://creativecommons.org/licenses/by/2.0/">Creative Commons</a></em></p>

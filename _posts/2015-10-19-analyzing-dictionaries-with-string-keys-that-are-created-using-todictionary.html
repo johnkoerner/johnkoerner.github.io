@@ -1,0 +1,167 @@
+---
+layout: post
+status: publish
+published: true
+title: Analyzing Dictionaries with String Keys that are Created Using ToDictionary
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1444
+wordpress_url: https://johnkoerner.com/?p=1444
+date: '2015-10-19 03:28:17 -0400'
+date_gmt: '2015-10-19 03:28:17 -0400'
+categories:
+- C#
+- Code Analysis
+tags:
+- C#
+- Code Analysis
+- roslyn
+- vs2015
+- Visual Studio 2015
+---
+<p>In the past we have covered <a href="https://johnkoerner.com/csharp/working-with-types-in-your-analyzer/">working with types</a> in your analyzer. We even built an analyzer that looked at <a href="https://johnkoerner.com/csharp/creating-an-analyzer-based-on-generic-type-parameters/">generic types</a> to work with dictionaries that have <code>string</code> keys to ensure they specified a string comparer. Since we already have that built, let's modify the existing analyzer to handle the <code>ToDictionary</code> call on an IEnumerable.</p>
+<p>Let's start with the existing code for the analyzer:</p>
+<pre><code>public override void Initialize(AnalysisContext context)
+{
+    context.RegisterCompilationStartAction(compilationContext =&gt;
+    {
+        var dictionaryTokenType = compilationContext.Compilation.GetTypeByMetadataName("System.Collections.Generic.Dictionary`2");
+        var equalityComparerInterfaceType = compilationContext.Compilation.GetTypeByMetadataName("System.Collections.Generic.IEqualityComparer`1");
+
+        if (dictionaryTokenType != null)
+        {
+            compilationContext.RegisterSyntaxNodeAction(symbolContext =&gt;
+            {
+                var creationNode = (ObjectCreationExpressionSyntax)symbolContext.Node;
+                var variableTypeInfo = symbolContext.SemanticModel.GetTypeInfo(symbolContext.Node).ConvertedType as INamedTypeSymbol;
+
+                if (variableTypeInfo == null)
+                    return;
+
+                if (!variableTypeInfo.OriginalDefinition.Equals(dictionaryTokenType))
+                    return;
+
+                // We only care about dictionaries who use a string as the key
+                if (variableTypeInfo.TypeArguments.First().SpecialType != SpecialType.System_String)
+                    return;
+
+                var arguments = creationNode.ArgumentList?.Arguments;
+
+                if (arguments == null || arguments.Value.Count == 0)
+                {
+                    symbolContext.ReportDiagnostic(Diagnostic.Create(Rule, symbolContext.Node.GetLocation()));
+                    return;
+                }
+
+                bool hasEqualityComparer = false;
+                foreach (var argument in arguments)
+                {
+                    var argumentType = symbolContext.SemanticModel.GetTypeInfo(argument.Expression);
+
+                    if (argumentType.ConvertedType == null)
+                        return;
+
+                    if (argumentType.ConvertedType.OriginalDefinition.Equals(equalityComparerInterfaceType))
+                    {
+                        hasEqualityComparer = true;
+                        break;
+                    }
+                }
+
+                if (!hasEqualityComparer)
+                {
+                    symbolContext.ReportDiagnostic(Diagnostic.Create(Rule, symbolContext.Node.GetLocation()));
+                }
+            }, SyntaxKind.ObjectCreationExpression);
+        }
+    });
+}
+</code></pre>
+<p>In order to modify this code, we need to do a few things. First, we need to change from using <code>ObjectCreatoinExpressoin</code> to <code>InvocationExpression</code>. Simply modify the syntax kind on the <code>RegisterSyntaxNodeAction</code> and update the cast to use an <code>InvocationExpressionSyntax</code> (Note, I also changed the variable name for clarity):</p>
+<pre><code>compilationContext.RegisterSyntaxNodeAction(symbolContext =&gt;
+{
+    var invocationNode = (InvocationExpressionSyntax)symbolContext.Node;
+    /* rest of the analyzer */
+}, SyntaxKind.InvocationExpression);
+</code></pre>
+<p>With that done, you can now run the code and it will catch all <code>ToDictionary</code> calls that return a <code>Dictionary&lt;string, X&gt;</code>, unfortunately, it will also catch any other method calls that happen to return a dictionary with a string key. To fix this, we need to check the method invocation to make sure it is a <code>ToDictionary</code> call. To do this, we can access the expression from the <code>invocationNode</code> and check the identifier text to see if is <code>ToDictionary</code>:</p>
+<pre><code>var expression = invocationNode.Expression as MemberAccessExpressionSyntax;
+var name = expression?.Name.Identifier.Text;
+
+if (name == null || !name.Equals("ToDictionary"))
+{
+    return;
+}
+</code></pre>
+<p>That's it. The full code for the analyzer is:</p>
+<pre><code>public override void Initialize(AnalysisContext context)
+{
+    context.RegisterCompilationStartAction(compilationContext =&gt;
+    {
+        var dictionaryTokenType = compilationContext.Compilation.GetTypeByMetadataName("System.Collections.Generic.Dictionary`2");
+        var equalityComparerInterfaceType = compilationContext.Compilation.GetTypeByMetadataName("System.Collections.Generic.IEqualityComparer`1");
+
+        if (dictionaryTokenType != null)
+        {
+            compilationContext.RegisterSyntaxNodeAction(symbolContext =&gt;
+            {
+                var invocationNode = (InvocationExpressionSyntax)symbolContext.Node;
+                var variableTypeInfo = symbolContext.SemanticModel.GetTypeInfo(symbolContext.Node).ConvertedType as INamedTypeSymbol;
+
+                if (variableTypeInfo == null)
+                    return;
+
+                if (!variableTypeInfo.OriginalDefinition.Equals(dictionaryTokenType))
+                    return;
+
+                // We only care about dictionaries who use a string as the key
+                if (variableTypeInfo.TypeArguments.First().SpecialType != SpecialType.System_String)
+                    return;
+
+                var expression = invocationNode.Expression as MemberAccessExpressionSyntax;
+                var name = expression?.Name.Identifier.Text;
+
+                if (name == null || !name.Equals("ToDictionary"))
+                {
+                    return;
+                }
+
+                var arguments = invocationNode.ArgumentList?.Arguments;
+
+                if (arguments == null || arguments.Value.Count == 0)
+                {
+                    symbolContext.ReportDiagnostic(Diagnostic.Create(Rule, symbolContext.Node.GetLocation()));
+                    return;
+                }
+
+                bool hasEqualityComparer = false;
+                foreach (var argument in arguments)
+                {
+                    var argumentType = symbolContext.SemanticModel.GetTypeInfo(argument.Expression);
+
+                    if (argumentType.ConvertedType == null)
+                        return;
+
+                    if (argumentType.ConvertedType.OriginalDefinition.Equals(equalityComparerInterfaceType))
+                    {
+                        hasEqualityComparer = true;
+                        break;
+                    }
+                }
+
+                if (!hasEqualityComparer)
+                {
+                    symbolContext.ReportDiagnostic(Diagnostic.Create(Rule, symbolContext.Node.GetLocation()));
+                }
+            }, SyntaxKind.InvocationExpression);
+        }
+    });
+}
+</code></pre>
+<p>That is all you need to update to get a functioning analyzer that will handle the <code>ToDictionary</code> calls on an IEnumerable to ensure that you have dictionaries that explicitly define their string comparers. Obviously, this analyzer isn't perfect as it technically catches any method called <code>ToDictionary</code> regardless if the method is the <code>IEnumerable</code> <code>ToDictionary</code> or some other <code>ToDictionary</code>. I'll leave that fix as an exercise for the reader :).</p>
+<p><em>Image Credit: <a href="https://flic.kr/p/9oWMQ9">Caleb Roenigk</a> via <a href="https://creativecommons.org/licenses/by/2.0/">Creative Commons</a></em></p>

@@ -1,0 +1,22 @@
+---
+layout: post
+status: publish
+published: true
+title: Getting the name of the day of the week in C#
+author: John Koerner
+author_email: blog@johnkoerner.net
+wordpress_id: 181
+wordpress_url: http://johnkoerner.com/?p=181
+date: '2006-09-21 23:43:49 -0400'
+date_gmt: '2006-09-21 23:43:49 -0400'
+categories:
+- Csharp
+tags: []
+---
+<p>Getting the current day of week in C# is pretty easy if all you need is the English version of the day, for example:</p>
+<pre><code>#!csharp
+MessageBox.Show(System.DateTime.Now.DayOfWeek.ToString());
+</code></pre>
+<p>But if you want to get the Day of Week for the current language the computer is setup for, the above code will not work. You need to access the <code>DayNames</code> property on the <code>DateTimeFormatInfo</code> class and get the day of week from there. The snippet of code below, demonstrates how to do it:</p>
+<pre><code>MessageBox.Show(System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.DayNames[(int)System.DateTime.Now.DayOfWeek]);
+</code></pre>

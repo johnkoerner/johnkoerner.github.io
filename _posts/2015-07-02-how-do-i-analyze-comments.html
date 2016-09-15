@@ -1,0 +1,70 @@
+---
+layout: post
+status: publish
+published: true
+title: How do I Analyze Comments?
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1144
+wordpress_url: https://johnkoerner.com/?p=1144
+date: '2015-07-02 03:26:57 -0400'
+date_gmt: '2015-07-02 03:26:57 -0400'
+categories:
+- C#
+- Code Analysis
+- Roslyn
+tags: []
+---
+<p>When creating a Visual Studio analyzer, you may ask yourself the question, how can I analyze comments? I say to you good question. Let's start by trying the obvious:</p>
+<pre><code> context.RegisterSyntaxNodeAction(CommentMethod, SyntaxKind.SingleLineCommentTrivia)
+</code></pre>
+<p>You would think that this would work, as I did the first time I tried this. Unfortunately, comment trivia is handled differently and your <code>CommentMethod</code> will never be called. To properly handle comment trivia, you need to register for the entire syntax tree and then parse out the nodes that you want.</p>
+<p>Fortunately, this is not difficult. First, in your initialize method, you want to register a <code>SyntaxTreeAction</code></p>
+<pre><code>public override void Initialize(AnalysisContext context)
+{
+    context.RegisterSyntaxTreeAction(this.HandleSyntaxTree);
+}
+</code></pre>
+<p>Then in your syntax tree action, you can parse out the nodes that you care about. For example, below I am looking for empty comments, so I parse out the <code>SingleLineCommentTrivia</code> and <code>MultiLineCommentTrivia</code> :</p>
+<pre><code>private void HandleSyntaxTree(SyntaxTreeAnalysisContext context)
+{
+    SyntaxNode root = context.Tree.GetCompilationUnitRoot(context.CancellationToken);
+    var commentNodes = from node in root.DescendantTrivia() where node.IsKind(SyntaxKind.MultiLineCommentTrivia) || node.IsKind(SyntaxKind.SingleLineCommentTrivia) select node;
+
+    if (!commentNodes.Any())
+    {
+        return;
+    }
+    foreach (var node in commentNodes)
+    {
+        string commentText = "";
+        switch (node.Kind())
+        {
+            case SyntaxKind.SingleLineCommentTrivia:
+                commentText = node.ToString().TrimStart('/');
+                break;
+            case SyntaxKind.MultiLineCommentTrivia:
+                var nodeText = node.ToString();
+
+                commentText = nodeText.Substring(2, nodeText.Length-4);
+                break;
+        }
+
+        if (String.IsNullOrWhiteSpace(commentText))
+        {
+            var diagnostic = Diagnostic.Create(Rule, node.GetLocation());
+            context.ReportDiagnostic(diagnostic);
+        }
+    }
+
+}
+</code></pre>
+<p>This method is pretty straightforward. I use the <code>DescentdantTrivia</code> from the root node to get all of the nodes and then filter out anything except the comment nodes that I wish to parse.</p>
+<p>After that it is just removing the comment characters and parsing the text of the comments to ensure they are not empty.</p>
+<p>As you can see, parsing comments using the Roslyn code analysis engine is easy once you know the correct way to access the syntax trivia nodes.</p>
+<p><em>Image Credit: <a href="https://en.wikipedia.org/wiki/Photograph_conservator#/media/File:Fondos_archivo.jpg">Archivo-FSP</a> via <a href="http://creativecommons.org/licenses/by-sa/3.0">Creative Commons</a></em></p>

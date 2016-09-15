@@ -1,0 +1,72 @@
+---
+layout: post
+status: publish
+published: true
+title: 'Creating a PowerShell Navigation Provider: #4 Tab Completion'
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 939
+wordpress_url: http://johnkoerner.com/?p=939
+date: '2014-10-30 03:10:00 -0400'
+date_gmt: '2014-10-30 03:10:00 -0400'
+categories:
+- C#
+- PowerShell
+tags: []
+---
+<p>In the <a href="http://johnkoerner.com/csharp/creating-a-powershell-navigation-provider-3-nested-getchilditems-support/">third</a> post in this series we covered the basics of navigation. Now we are going to implement tab completion in the provider. While doing this may seem simple and a small task, it makes your provider feel more integrated with PowerShell.</p>
+<p>The final working code for this project can be found at the <a href="https://github.com/johnkoerner/PowershellProvider">github depot</a> under the <a href="https://github.com/johnkoerner/PowershellProvider/tree/TabCompletion">TabCompletion</a> tag.</p>
+<p>Adding Tab Support is actually pretty easy (as are most things in the PowerShell Provider world, once you know what to do). To start, we will modify our CmdletProvider attribute to include capabilities. We are going to add the <a href="http://msdn.microsoft.com/en-us/library/system.management.automation.provider.providercapabilities%28v=vs.85%29.aspx">ExpandWildcards</a> capability to our provider:</p>
+<pre><code>[CmdletProvider("MyPowerShellProvider", ProviderCapabilities.ExpandWildcards)]
+</code></pre>
+<p>Next, we will modify our <code>ItemExists</code> method to properly validate the tag actually exists:</p>
+<pre><code>protected override bool ItemExists(string path)
+{
+    if (tags == null)
+        return true;
+
+    if (String.IsNullOrEmpty(path))
+        return true;
+
+    var itemFromTag = from tag in tags.Data.Items
+                      where tag.Name.Equals(path, StringComparison.CurrentCultureIgnoreCase)
+                      select tag;
+    return itemFromTag.Any();
+}
+</code></pre>
+<p>Now we will provide a helper method to convert a path from PowerShell into an array of valid tags. This method will handle the wildcards sent in from PowerShell, so it does some basic Regex parsing:</p>
+<pre><code>private string[] TagsFromPath(string path)
+{
+    if (tags == null)
+        return null;
+
+    var regexString = Regex.Escape(path).Replace("\*", ".*");
+    regexString = "^" + regexString + "$";
+    var regex = new Regex(regexString);
+
+    var itemFromTag = from tag in tags.Data.Items
+                      where regex.IsMatch(tag.Name)
+                      select tag.Name;
+
+    if (itemFromTag.Any())
+        return itemFromTag.ToArray();
+
+    return null;
+}
+</code></pre>
+<p>Finally, we will override the ExpandPath method in the base provider:</p>
+<pre><code>protected override string[] ExpandPath(string path)
+{
+    return TagsFromPath(path);
+}
+</code></pre>
+<p>Simple enough, if you compile and run, tab completion should now work.</p>
+<p>For example, if you go to your <code>SO:</code> drive and do a <code>cd j</code><kbd>Tab</kbd>, you will see that the <code>ExpandPath</code> method is called with a path parameter of <code>j*</code>. If you press <kbd>Tab</kbd> multiple times, you will see it iterate over the various options (<code>.\java</code>, <code>.\javascript</code>, <code>.\jquery</code>, ...).</p>
+<p>You could also use your own wildcard, so <code>cd j*v</code><kbd>Tab</kbd> and it will only iterate over the matches of <code>java</code> and <code>javascript</code>.</p>
+<p>As you have seen implementing tab completion in PowerShell is just as easy as everything else we have done (if not easier), it is just knowing the correct methods to implement. At this point we have a rather functional sample provider. Sure, it doesn't do much, but this should give you most of what you need to implement your own provider with whatever backend API you need.</p>
+<p>For now, this will be the last of the navigation provider posts. If you find something that should be added, leave a comment below and maybe I will add it to the series.</p>

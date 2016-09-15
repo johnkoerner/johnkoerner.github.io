@@ -1,0 +1,130 @@
+---
+layout: post
+status: publish
+published: true
+title: Working with If Blocks in Your Code Analyzers
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1311
+wordpress_url: https://johnkoerner.com/?p=1311
+date: '2015-08-20 03:44:54 -0400'
+date_gmt: '2015-08-20 03:44:54 -0400'
+categories:
+- C#
+- Code Analysis
+- Roslyn
+tags:
+- C#
+- Code Analysis
+- roslyn
+- Visual Studio 2015
+---
+<p>Once you start writing your analyzers, you will eventually run into a scenario where you have to handle an <code>if</code> block. <code>If</code> blocks like any other blocks of code have a few nuances that you need to understand when working with them.</p>
+<p>To start analyzing <code>if</code> blocks, you can register a <code>SyntaxNodeAction</code> for the <code>SyntaxKind.IfStatement</code>:</p>
+<pre><code>context.RegisterSyntaxNodeAction((syntaxNodeContext)=&gt;
+{
+}, SyntaxKind.IfStatement); 
+</code></pre>
+<p>Now before we start analyzing the <code>IfStatementSyntax</code>, we should first look at the components of the syntax. Take for example the following code:</p>
+<p><a href="https://johnkoerner.com/wp-content/uploads/2015/08/IfBlock.png"><img src="https://johnkoerner.com/wp-content/uploads/2015/08/IfBlock.png" alt="IfBlock" width="403" height="289" class="alignnone size-full wp-image-1313" /></a></p>
+<p>Breaking down this statement, each of the different colors maps to different properties on the <code>IfStatementSyntax</code> as demonstrated in the chart below.</p>
+<table>
+<thead>
+<tr>
+<th>
+        Statement
+      </th>
+<th>
+        Explanation
+      </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="background-color:#E7FF63">
+        if
+      </td>
+<td>
+        This is represented by the <code>IfKeyword</code> property on the <code>IfStatementSyntax</code>
+      </td>
+</tr>
+<tr>
+<td style="background-color:#FF96CC">
+        (x==null)
+      </td>
+<td>
+        This is represented by the <code>Condition</code> property on the <code>IfStatementSyntax</code>
+      </td>
+</tr>
+<tr>
+<td style="background-color:rgba(71,71,255,0.5)">
+        { // Do stuff }
+      </td>
+<td>
+        This is represented by the <code>Statement</code> property on the <code>IfStatementSyntax</code>
+      </td>
+</tr>
+<tr>
+<td style="background-color:rgba(35,255,46,0.5)">
+        else { // Do other stuff }
+      </td>
+<td>
+        This is represented by the <code>Else</code> property on the <code>IfStatementSyntax</code>
+      </td>
+</tr>
+</tbody>
+</table>
+<p>Now that you have a basic understanding of the different elements in the <code>IfStatementSyntax</code>, you can take the node passed into the method via the <code>syntaxNodeContext</code> to access the <code>If</code> statement. So, if for example we wanted to raise a diagnostic anytime someone checked <code>!= null</code>, we could start by looking at the condition as a <code>BinaryExpressionSyntax</code></p>
+<pre><code>var node = syntaxNodeContext.Node as IfStatementSyntax;
+var binaryExpression = node.Condition as BinaryExpressionSyntax;
+
+if (binaryExpression == null)
+    return;
+</code></pre>
+<p>Next, the <code>binaryExpression</code> has a kind that we can check to make sure it is a <code>NotEqualsException</code>.</p>
+<pre><code>if (binaryExpression.IsKind(SyntaxKind.NotEqualsExpression))
+{
+}
+</code></pre>
+<p>The binary expression contains a left and right portion of the expression. Since we are looking to see if one side of the expression is null, we can simply cast the left and right portions of the expression to a <code>LiteralExpressionSyntax</code> and check to see if that is a <code>NullLiteralExpression</code>. If either side matches that criteria, then we can raise the diagnostic.</p>
+<pre><code>var left = binaryExpression.Left as LiteralExpressionSyntax;
+var right = binaryExpression.Right as LiteralExpressionSyntax;
+
+if (left != null &amp;&amp; left.IsKind(SyntaxKind.NullLiteralExpression) 
+    ||(right !=null &amp;&amp; right.IsKind(SyntaxKind.NullLiteralExpression)))
+{
+    syntaxNodeContext.ReportDiagnostic(Diagnostic.Create(Rule, binaryExpression.GetLocation()));
+}
+</code></pre>
+<p>So in the end, our full diagnostic looks like this:</p>
+<pre><code>public override void Initialize(AnalysisContext context)
+{
+    context.RegisterSyntaxNodeAction((syntaxNodeContext)=&gt;
+    {
+        var node = syntaxNodeContext.Node as IfStatementSyntax;
+        var binaryExpression = node.Condition as BinaryExpressionSyntax;
+
+        if (binaryExpression == null)
+            return;
+
+        if (binaryExpression.IsKind(SyntaxKind.NotEqualsExpression))
+        {
+            var left = binaryExpression.Left as LiteralExpressionSyntax;
+            var right = binaryExpression.Right as LiteralExpressionSyntax;
+
+            if (left != null &amp;&amp; left.IsKind(SyntaxKind.NullLiteralExpression) 
+                ||(right !=null &amp;&amp; right.IsKind(SyntaxKind.NullLiteralExpression)))
+            {
+                syntaxNodeContext.ReportDiagnostic(Diagnostic.Create(Rule, binaryExpression.GetLocation()));
+            }
+        }
+    }, SyntaxKind.IfStatement);
+}
+</code></pre>
+<p>As I demonstrated, the processing of <code>if</code> statements in your analyzers is not difficult and can be a very powerful construct to use in your analyzer. There is obviously much more that can be done with the processing of <code>if</code> statements and I would encourage you to take the time and learn more about them.</p>
+<p><em>Image Credit <a href="https://flic.kr/p/b2Y8tP">Benson Kua</a> via <a href="https://creativecommons.org/licenses/by-sa/2.0/">Creative Commons</a></em></p>

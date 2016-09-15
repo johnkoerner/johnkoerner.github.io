@@ -1,0 +1,68 @@
+---
+layout: post
+status: publish
+published: true
+title: Improving the Performance of the Android Emulator on Windows
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 301
+wordpress_url: http://johnkoerner.com/?p=301
+date: '2013-12-14 22:38:17 -0500'
+date_gmt: '2013-12-14 22:38:17 -0500'
+categories:
+- Android
+tags: []
+---
+<p>This is a collection of tips and tricks I have found that have greatly improved the performance of emulators on windows. When I first loaded the emulator, it took just under 2 minutes to load and get to a point where an app could be started. After making some tweaks, it now takes about 20 seconds.</p>
+<p>On the left we have the default ARM setup and on the right we have an x86 emulator setup (at 3x speed):</p>
+<p><img src="/wp-content/uploads/2013/12/Android-Timings-ARM.gif" alt="Android Timings ARM" width="226" height="288" class="size-full wp-image-311" /> <img src="/wp-content/uploads/2013/12/Android-Timings-x86.gif" alt="Android Timings x86" width="226" height="288" class="size-full wp-image-321" /></p>
+<p>The three major factors that contributed to the increase:</p>
+<ul>
+<li>Using the x86 emulator instead of the ARM emulator</li>
+<li>Enabling <code>Use Host GPU</code> on the virtual device</li>
+<li>Ensuring HAX is installed </li>
+</ul>
+<h2>Using the x86 emulator</h2>
+<p>To create an x86 emulator, you need to ensure you have downloaded the x86 system image for your android version: <img alt='' class='alignnone size-full wp-image-551' src='/wp-content/uploads/2013/12/img_52acd7a4d7597.png' /></p>
+<p>Once that is done, simply create a new emulator using that CPU:</p>
+<p><img alt='' class='alignnone size-full wp-image-561' src='/wp-content/uploads/2013/12/img_52acd80df11c8.png' /></p>
+<h2>Enabling Use Host GPU</h2>
+<p>Enabling the host GPU allows your video card to do some of the heavy lifting for display rendering and should give you a good deal of a performance increase. This setting is on the VHD creation dialog:</p>
+<p><img alt='' class='alignnone size-full wp-image-591' src='/wp-content/uploads/2013/12/img_52acd897aa2a0.png' /></p>
+<h2>Enabling HAX</h2>
+<p><a href="http://software.intel.com/en-us/articles/intel-hardware-accelerated-execution-manager">HAX</a> is a hypervisor developed by Intel that was built specifically to improve Android emulation on Intel hardware. You can install this from the Intel website, or run the IntelHaxm executable included with the Android SDK. This can be found at:</p>
+<pre><code>extras\intel\Hardware_Accelerated_Execution_Manager
+</code></pre>
+<p>Note that this only works with some intel processors. See the troubleshooting section for more info.</p>
+<p>After the install, you can check if the service is working by running <code>sc query intelhaxm</code>. You should see a state of 4 indicating it is running:</p>
+<pre><code>$ sc query intelhaxm
+
+SERVICE_NAME: intelhaxm
+        TYPE               : 1  KERNEL_DRIVER
+        STATE              : 4  RUNNING
+                                (STOPPABLE, NOT_PAUSABLE, IGNORES_SHUTDOWN)
+        WIN32_EXIT_CODE    : 0  (0x0)
+        SERVICE_EXIT_CODE  : 0  (0x0)
+        CHECKPOINT         : 0x0
+        WAIT_HINT          : 0x0
+</code></pre>
+<p>Also, when you start your emulator, you should see a message indicating HAX is working:</p>
+<pre><code>Starting emulator for AVD 'Nexus-7GPU'
+emulator: device fd:924
+HAX is working and emulator runs in fast virt mode
+</code></pre>
+<h2>Troubleshooting</h2>
+<p>When trying to set this up, I did run into a few snags and there are some things to check if you are getting error messages.</p>
+<h3>Make sure your processor supports HAX</h3>
+<p>You can check if your processor supports HAX on the Intel <a href="http://ark.intel.com/">Ark</a> website. Select your processor and under the Advanced Technologies section, look for the value <code>Intel® Virtualization Technology (VT-x)</code> and ensure it is set to yes.</p>
+<p><img alt='' class='alignnone size-full wp-image-631' src='/wp-content/uploads/2013/12/img_52acdc00acafe.png' /></p>
+<h3>Verify VT-x is enabled in the BIOS</h3>
+<p>If your processor supports VT-x there may be a setting in the BIOS that enables or disables the feature. Verify that this setting is set to enabled.</p>
+<h3>Disable any other hypervisors</h3>
+<p>I found that on my Windows 8 installation Hyper-V was installed and this was interfering with HAX. You have to disable the feature (not just disable the services) in order to work around this. To disable the feature, open <code>Programs and Features</code>, select <code>Turn Windows features on or off</code> and uncheck <code>Hyper-V</code>.</p>
+<p><img alt='' class='alignnone size-full wp-image-641' src='/wp-content/uploads/2013/12/img_52acdd0b95a5b.png' /></p>

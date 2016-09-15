@@ -1,0 +1,182 @@
+---
+layout: post
+status: publish
+published: true
+title: Locking Down a Self Hosted WCF Service To the Current User
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1024
+wordpress_url: https://johnkoerner.com/?p=1024
+date: '2015-03-06 04:21:24 -0500'
+date_gmt: '2015-03-06 04:21:24 -0500'
+categories:
+- C#
+- Security
+tags: []
+---
+<p><center><br />
+  <img src="//i.imgur.com/rwN0yMs.jpg" alt="enter image description here" /><br />
+</center></p>
+<p>I am a big fan of using WCF services in my apps. Many times I like to have little services as part of my app, but the problem I have is that by default any user on the machine can access those services. Always thinking about security, I want to make sure that only the current user can access their own services.</p>
+<p>Consider the following code:</p>
+<pre><code>class TestService
+{
+
+    private readonly ServiceHost _host;
+    public TestService()
+    {
+        var pipePath = "net.pipe://localhost/Math";
+        NetNamedPipeBinding binding = new NetNamedPipeBinding();
+        _host = new ServiceHost(typeof(MathService), new Uri(pipePath));
+
+        ServiceMetadataBehavior smb = _host.Description.Behaviors.Find&lt;ServiceMetadataBehavior&gt;();
+
+        smb = new ServiceMetadataBehavior();
+
+        _host.Description.Behaviors.Add(smb);
+        _host.AddServiceEndpoint(typeof(IMath), binding, pipePath);
+        _host.AddServiceEndpoint(ServiceMetadataBehavior.MexContractName, 
+                MetadataExchangeBindings.CreateMexNamedPipeBinding(), pipePath + "/mex");
+    }
+
+    public async Task StartAsync()
+    {
+        await Task.Factory.FromAsync(_host.BeginOpen(null, null), _host.EndOpen);
+    }
+
+    public string Endpoint { get { return _host.BaseAddresses.First().AbsoluteUri.ToString(); } }
+
+}
+
+[ServiceContract]
+public interface IMath
+{
+    [OperationContract]
+    int Add(int x, int y);
+}
+
+public class MathService : IMath
+{
+    public int Add(int x, int y)
+    {
+        unchecked
+        {
+            return x + y;
+        }
+    }
+}
+</code></pre>
+<p>When I start this service, anyone on the machine can talk to the service via its URI (<code>net.pipe://localhost/Math</code>). In order to lock this service down, I did my research and found that you can implement a custom <a href="https://msdn.microsoft.com/en-us/library/system.servicemodel.serviceauthorizationmanager%28v=vs.110%29.aspx">ServiceAuthorizationManager</a> which will allow you to control who has access to your services.</p>
+<p>To start, I created a simple implementation that checked the current user against the operation context security user:</p>
+<pre><code>public class CurrentUserOnlyAuthorizationManager : ServiceAuthorizationManager
+{
+    protected override bool CheckAccessCore(OperationContext operationContext)
+    {
+        var currentUser = WindowsIdentity.GetCurrent()?.User;
+        var contextUser = operationContext?.ServiceSecurityContext?.WindowsIdentity?.User;
+        if (currentUser == null || contextUser==null)
+            return false;
+
+        return currentUser.Equals(contextUser);
+    }
+}
+</code></pre>
+<p>And when setting up my host, I have it use the new manager:</p>
+<pre><code>_host.Authorization.ServiceAuthorizationManager = new CurrentUserOnlyAuthorizationManager();
+</code></pre>
+<p>This works well, until you try and regenerate the service reference. By default the service references are generated using an anonymous request to the service. Since the anonymous user doesn't match the user hosting the service the code prevents the anonymous user from accessing the service. Fortunately there was an <a href="https://msdn.microsoft.com/en-us/library/aa347849%28v=vs.110%29.aspx">MSDN article</a> that addressed this specifically and gave the exact code to handle mex requests. So my final <code>CurrentUserOnlyAuthorizationManager</code> looks like this:</p>
+<pre><code>public class CurrentUserOnlyAuthorizationManager : ServiceAuthorizationManager
+{
+    protected override bool CheckAccessCore(OperationContext operationContext)
+    {
+        // Allow MEX requests through.
+        if (operationContext.EndpointDispatcher.ContractName == ServiceMetadataBehavior.MexContractName &amp;&amp;
+            operationContext.EndpointDispatcher.ContractNamespace == "http://schemas.microsoft.com/2006/04/mex" &amp;&amp;
+            operationContext.IncomingMessageHeaders.Action == "http://schemas.xmlsoap.org/ws/2004/09/transfer/Get")
+            return true;
+
+        var currentUser = WindowsIdentity.GetCurrent()?.User;
+        var contextUser = operationContext?.ServiceSecurityContext?.WindowsIdentity?.User;
+        if (currentUser == null || contextUser==null)
+            return false;
+
+        return currentUser.Equals(contextUser);
+    }
+}
+</code></pre>
+<p>Once this is in place, then I am able to successfully regenerate the service references as needed through Visual Studio or the svcutil app. The final code for the test service is:</p>
+<pre><code>class TestService
+{
+
+    private readonly ServiceHost _host;
+    public TestService()
+    {
+        var pipePath = "net.pipe://localhost/Math";
+        NetNamedPipeBinding binding = new NetNamedPipeBinding();
+        _host = new ServiceHost(typeof(MathService), new Uri(pipePath));
+
+        ServiceMetadataBehavior smb = _host.Description.Behaviors.Find&lt;ServiceMetadataBehavior&gt;();
+
+        smb = new ServiceMetadataBehavior();
+
+        _host.Description.Behaviors.Add(smb);
+        _host.AddServiceEndpoint(typeof(IMath), binding, pipePath);
+        _host.AddServiceEndpoint(ServiceMetadataBehavior.MexContractName, MetadataExchangeBindings.CreateMexNamedPipeBinding(), pipePath + "/mex");
+
+        _host.Authorization.ServiceAuthorizationManager = new CurrentUserOnlyAuthorizationManager();
+
+    }
+
+    public async Task StartAsync()
+    {
+        await Task.Factory.FromAsync(_host.BeginOpen(null, null), _host.EndOpen);
+    }
+
+    public string Endpoint { get { return _host.BaseAddresses.First().AbsoluteUri.ToString(); } }
+
+}
+
+[ServiceContract]
+public interface IMath
+{
+    [OperationContract]
+    int Add(int x, int y);
+}
+
+public class MathService : IMath
+{
+    public int Add(int x, int y)
+    {
+        unchecked
+        {
+            return x + y;
+        }
+    }
+}
+
+public class CurrentUserOnlyAuthorizationManager : ServiceAuthorizationManager
+{
+    protected override bool CheckAccessCore(OperationContext operationContext)
+    {
+        // Allow MEX requests through.
+        if (operationContext.EndpointDispatcher.ContractName == ServiceMetadataBehavior.MexContractName &amp;&amp;
+            operationContext.EndpointDispatcher.ContractNamespace == "http://schemas.microsoft.com/2006/04/mex" &amp;&amp;
+            operationContext.IncomingMessageHeaders.Action == "http://schemas.xmlsoap.org/ws/2004/09/transfer/Get")
+            return true;
+
+        var currentUser = WindowsIdentity.GetCurrent()?.User;
+        var contextUser = operationContext?.ServiceSecurityContext?.WindowsIdentity?.User;
+        if (currentUser == null || contextUser==null)
+            return false;
+
+        return currentUser.Equals(contextUser);
+    }
+}
+</code></pre>
+<p>Now, if a user other than the user that started the service tries to access the service, they will get a <code>SecurityAccessDeniedException</code>. I have also posted this code up on <a href="https://github.com/johnkoerner/wcftestapp">Github</a>, if you want to download it an play with it.</p>
+<p><em>Image Credit: <a href="https://www.flickr.com/photos/17258892@N05/2588347668/in/photolist-4WHXzW-7yahjU-8hDCW3-7HSuP2-qS9iii-8Cjveb-GW2Va-28i54x-brT6Uv-bB13yf-AjWk7-a7E8EJ-5sARbG-5nTnpt-7Uc5gA-6bCq1k-2xk2RG-6aspTN-qbYimc-GpuN-4L5Unf-7KtbgT-2xk2UE-5swtWz-445Nf-2xk31y-8CkKWq-cbshxo-8m1fUK-k7dyKF-bVqXM8-6NTXZQ-73WW8-5Nftbk-6h14wn-4XuFMt-nhLC7n-8SmaVa-ka6d1m-raEWS-5tsmZ6-5HBAha-4QVD3Z-4UixFw-7AuuGy-uhKPX-5Nftae-8MW1NG-8SmbbH-agx6Bs">ralphbijker</a> via <a href="https://creativecommons.org/licenses/by/2.0/">Creative Commons</a></em></p>

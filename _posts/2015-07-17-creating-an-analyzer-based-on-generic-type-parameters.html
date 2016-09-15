@@ -1,0 +1,96 @@
+---
+layout: post
+status: publish
+published: true
+title: Creating an analyzer based on Generic Type Parameters
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1184
+wordpress_url: https://johnkoerner.com/?p=1184
+date: '2015-07-17 02:45:59 -0400'
+date_gmt: '2015-07-17 02:45:59 -0400'
+categories:
+- C#
+- Code Analysis
+- Roslyn
+tags:
+- C#
+- Code Analysis
+- vs2015
+---
+<p>In my <a href="https://johnkoerner.com/csharp/working-with-types-in-your-analyzer/">last post</a> we discussed how to work with types in your analyzers. We even covered the basics of getting a generic type. In this post, we will go a little deeper and look at how you can analyze the generic type parameters used in the creation of a generic type. We will even delve a little into construction parameters, so we can write an analyzer that verifies you specify an <code>IEqualityComparer</code> when you use a string as the key to your dictionary.</p>
+<p>To start, as a refresher from last time, in order to access types from the Roslyn compiler we need to register a compilation start action and get the metadata type by name.</p>
+<pre><code>context.RegisterCompilationStartAction(compilationContext =&gt;
+{
+    var dictionaryTokenType = compilationContext.Compilation.GetTypeByMetadataName("System.Collections.Generic.Dictionary`2");
+</code></pre>
+<p>To get the dictionary type, we are using the name of the generic class plus the arity to determine the metadata name.</p>
+<p>Once we have done that, we can then register a <code>SyntaxNodeAction</code> for all <code>ObjectCreationExpressions</code>. We will start by verifying the type is a dictionary type.</p>
+<pre><code>compilationContext.RegisterSyntaxNodeAction(symbolContext =&gt;
+{
+    var creationNode = (ObjectCreationExpressionSyntax)symbolContext.Node;
+    var variableTypeInfo = symbolContext.SemanticModel.GetTypeInfo(symbolContext.Node).ConvertedType as INamedTypeSymbol;
+
+    if (variableTypeInfo == null)
+        return;
+
+    if (!variableTypeInfo.OriginalDefinition.Equals(dictionaryTokenType))
+        return;
+...
+</code></pre>
+<p>Now we are at a point where we can start looking at the generic type parameters to determine if this is a dictionary we care about. Since I am looking for a string as the key, I can use the <code>SpecialType.System_String</code> to check against a type. To access the generic type parameters, you examine the <code>TypeArguments</code> on the <code>INamedTypeSymbol</code>.</p>
+<pre><code>if (variableTypeInfo.TypeArguments.First().SpecialType != SpecialType.System_String)
+    return;
+</code></pre>
+<p>Since we know we are dealing with a dictionary and it uses the key as the first parameter, we simply check the first type argument to see if it is a string. Now that we have the type determination out of the way we can now start looking at the constructor arguments to determine if an equality comparer was passed in. First, in our compilation start action we need to capture the <code>IEqualityComparer</code> type:</p>
+<pre><code>var equalityComparerInterfaceType = compilationContext.Compilation.GetTypeByMetadataName("System.Collections.Generic.IEqualityComparer`1");
+</code></pre>
+<p>Again, this is a generic with an arity of 1, so we can use that information to generate the correct metadata name. Next we can access the ArgumentList off of the <code>ObjectCreatoinExpressionSyntax</code> node to check to see if any of the arguments match that type. The first check to perform is to simply check if there are any constructor parameters sent:</p>
+<pre><code>var arguments = creationNode.ArgumentList?.Arguments;
+if (arguments==null || arguments.Value.Count == 0)
+{
+    symbolContext.ReportDiagnostic(Diagnostic.Create(Rule, symbolContext.Node.GetLocation()));
+    return;
+}
+</code></pre>
+<p>Next, we can loop over the arguments to see if any of them are of the type <code>IEqualityComparer`1</code>. If there is no equality comparer, then we can raise a diagnostic:</p>
+<pre><code>bool hasEqualityComparer = false;
+foreach (var argument in arguments)
+{
+    var argumentType = symbolContext.SemanticModel.GetTypeInfo(argument.Expression);
+
+    if (argumentType.ConvertedType == null)
+        return;    
+
+    if (argumentType.ConvertedType.OriginalDefinition.Equals(equalityComparerInterfaceType))
+    {
+        hasEqualityComparer = true;
+        break;
+    }
+}
+
+if (!hasEqualityComparer)
+{
+    symbolContext.ReportDiagnostic(Diagnostic.Create(Rule, symbolContext.Node.GetLocation()));
+}
+</code></pre>
+<p>Now that we have all of that wired up, our analyzer will properly report a diagnostic on a dictionary with a string key that does not specify the equality comparer when the dictionary is constructed.</p>
+<p>Given the following sample code, you can see when the diagnostic would be triggered and when it would not:</p>
+<pre><code>// Will trigger diagnostic
+var foo = new Dictionary&lt;string, string&gt;();
+var foo1 = new Dictionary&lt;string, string&gt;(6);
+var foo2 = new Dictionary&lt;string, string&gt;(foo);
+
+// Will not trigger diagnostic
+var bar1 = new Dictionary&lt;string, string&gt;(StringComparer.CurrentCultureIgnoreCase);
+var bar2 = new Dictionary&lt;string, string&gt;(6, StringComparer.CurrentCultureIgnoreCase);
+var bar3 = new Dictionary&lt;string, string&gt;(bar2, StringComparer.CurrentCultureIgnoreCase);
+</code></pre>
+<p>The full text of the analyzer is available on <a href="https://github.com/johnkoerner/AnalyzerSamples/blob/master/AnalyzerSamples/AnalyzerSamples/Usage/DictionaryWithKeyStringMustSpecifyIComparer.cs">github</a> if you want to test it out for yourself.</p>
+<p>If you have ever used a string as a key to a dictionary and have been bitten by case sensitivity issues, this type of rule could have helped you prevent those types of bugs before they ever happened. Clearly, there is no magic going on here and it is very easy to wire up an analyzer that can make your life easier in just a few short minutes. At some point in the future, we can revisit this analyzer and see how we could handle the <code>ToDictionary</code> extension method to ensure that any dictionary with a string key is done correctly in our applications.</p>
+<p><em>Image Credit <a href="https://flic.kr/p/9B4TT1">Roy Luck</a> via <a href="https://creativecommons.org/licenses/by/2.0/">Creative Commons</a></em></p>

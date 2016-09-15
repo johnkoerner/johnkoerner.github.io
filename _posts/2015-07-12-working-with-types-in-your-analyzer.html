@@ -1,0 +1,72 @@
+---
+layout: post
+status: publish
+published: true
+title: Working with Types in Your Analyzer
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1175
+wordpress_url: https://johnkoerner.com/?p=1175
+date: '2015-07-12 20:02:33 -0400'
+date_gmt: '2015-07-12 20:02:33 -0400'
+categories:
+- C#
+- Code Analysis
+- Roslyn
+tags: []
+---
+<p>If you want to write an analyzer that checks for certain conditions for a given type, you are going to have to familiarize yourself in working with types in Roslyn. Types returned to you from various Roslyn methods will return to you an object that implements <a href="http://source.roslyn.io/#Microsoft.CodeAnalysis/Symbols/ITypeSymbol.cs"><code>ITypeSymbol</code></a>. This interface has various methods that can provide you with the information you need to make decisions in your analyzer. You can get types for various nodes in the semantic model by using the <code>SemanticModel.GetTypeInfo</code> and then using either the <code>Type</code> or <code>ConvertedType</code> off of the <a href="http://source.roslyn.io/#Microsoft.CodeAnalysis/Compilation/TypeInfo.cs"><code>TypeInfo</code></a> that is returned. The difference between the <code>Type</code> and <code>ConvertedType</code> is that the <code>ConvertedType</code> is the type after any implicit conversions have been applied. If there are no implicit conversions, then <code>Type</code> and <code>ConvertedType</code> are identical.</p>
+<p>There are some types that are special and can be checked by using the <code>SpecialKind</code> enum. For example, if you have an <code>ITypeSymbol</code> and you want to check if it is a string, you could simply do the following.</p>
+<pre><code>if (variableTypeInfo.SpecialType == SpecialType.System_String)
+{
+}
+</code></pre>
+<p>One question that you may have is how to get an <code>ITypeSymbol</code> if it is not defined in the <code>SpecialKind</code> enum. I had the same question and posted it to <a href="http://stackoverflow.com/q/31358044/573218">StackOverflow</a>. I got an answer from Kevin Pilch-Bisson (<a href="https://twitter.com/Pilchie">@Pilchie</a>) which states:</p>
+<blockquote>
+<p>The normal pattern for doing this is to use Compilation.GetTypeByMetadataName(), and then compare that ITypeSymbol with The one you got back from SemanticModel.GetTypeInfo().</p>
+<p>Note: Make sure to use .Equals to compare ITypeSymbol instances, as some of them do not guarantee reference identity.</p>
+</blockquote>
+<p>So, if we register a <code>CompilationStartAction</code>, then we can get at a type by simply using the <code>GetTypeByMetadataName</code> method:</p>
+<pre><code>var arrayListType = compilationContext.Compilation.GetTypeByMetadataName("System.Collections.ArrayList");
+</code></pre>
+<p>So, now that I have the <code>ArrayList</code> <code>ITypeSymbol</code>, I can now use that to compare to other <code>ITypeSymbol</code> interfaces I get back from the semantic model.</p>
+<p>For example, I could have an analyzer that prohibits the usage of <code>ArrayList</code>. I can register a <code>SyntaxNodeAction</code> for all <code>ObjectCreationExpressoin</code> syntax kinds and use the <code>GetTypeInfo</code> method to get the type of the creation and determine if it is an array list.</p>
+<pre><code>public override void Initialize(AnalysisContext context)
+{
+    context.RegisterCompilationStartAction(AnalyzeArrayList);
+}
+
+private static void AnalyzeArrayList(CompilationStartAnalysisContext compilationContext)
+{
+    var arrayListType = compilationContext.Compilation.GetTypeByMetadataName("System.Collections.ArrayList");
+
+    compilationContext.RegisterSyntaxNodeAction(syntaxContext =&gt;
+    {
+        var variableTypeInfo = syntaxContext.SemanticModel.GetTypeInfo(syntaxContext.Node).Type as INamedTypeSymbol;
+
+        if (variableTypeInfo == null)
+            return;
+
+        if (variableTypeInfo.Equals(arrayListType))
+        {
+            syntaxContext.ReportDiagnostic(Diagnostic.Create(Rule, syntaxContext.Node.GetLocation()));
+        }
+    }, SyntaxKind.ObjectCreationExpression);
+}
+</code></pre>
+<p>As the name implies, the <code>GetTypeByMetadataName</code> uses the metadata name of the type to find the type. One place where this might catch you is when dealing with generics. For example, when working with a dictionary, you might be tempted to try one of the following:</p>
+<pre><code>var dictionaryType = compilationContext.Compilation.GetTypeByMetadataName("System.Collections.Generic.Dictionary &lt;string, string&gt;");
+var dictionaryType2 = compilationContext.Compilation.GetTypeByMetadataName("System.Collections.Generic.Dictionary &lt;TKey, TValue&gt;");
+</code></pre>
+<p>But the Metadata name for the generic dictionary is <code>Dictionary`2</code>. For generics it is always the name of the type followed by the arity (number of type parameters) that make up the metadata name (e.g. <code>List`1</code>, <code>Tuple`5</code>). For more info, you can read up on <a href="http://stackoverflow.com/questions/1071245/what-is-the-signature-format-for-metadata-on-generic-methods-in-net-2-0-c">type names and arity encoding</a>.</p>
+<p>So the correct way to get a generic dictionary is</p>
+<pre><code>var dictionaryType2 = compilationContext.Compilation.GetTypeByMetadataName("System.Collections.Generic.Dictionary`2");
+</code></pre>
+<p>If you are still unsure of the correct value to use for the <code>GetTypeByMetadataName</code> method, you can look at the <a href="http://source.roslyn.io/#Microsoft.CodeAnalysis/Symbols/ISymbol.cs,38"><code>MetadataName</code></a> property that is available on all objects that implement <code>ISymbol</code>.</p>
+<p>As you can see working with types in code analyzers is not too difficult once you know where to look and how to obtain the types you care about.</p>
+<p><em>Image Source <a href="https://flic.kr/p/ayM6f">evan p. cordes</a> via <a href="https://creativecommons.org/licenses/by/2.0/">Creative Commons</a></em></p>

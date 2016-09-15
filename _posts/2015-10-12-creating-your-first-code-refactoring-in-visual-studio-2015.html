@@ -1,0 +1,75 @@
+---
+layout: post
+status: publish
+published: true
+title: Creating Your First Code Refactoring in Visual Studio 2015
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1436
+wordpress_url: https://johnkoerner.com/?p=1436
+date: '2015-10-12 01:39:47 -0400'
+date_gmt: '2015-10-12 01:39:47 -0400'
+categories:
+- C#
+- Code Analysis
+- Refactoring
+tags:
+- C#
+- Code Analysis
+- roslyn
+- vs2015
+- Visual Studio 2015
+---
+<p>One of the great new extensibility features of Visual Studio 2015 is the ability to create refactorings. This allows you to put an action in the <em>Quick Actions</em> menu to provide the user a quick change to the code they are working on. First, you need to install the <em>Visual Studio Extensibility Templates</em> installed in your instance of Visual Studio. You can install this from the <em>Tools->Extensions and Updates</em> menu inside Visual Studio.</p>
+<p>Once you have the templates installed, you can create a new refactoring as a new project. Select the <em>Extensibility</em> tab from the new project dialog and create a new <em>Code Refactoring (VSIX)</em> project.</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2015/10/NewCodeRefactoring.png" alt="NewCodeRefactoring" width="955" height="659" class="alignnone size-full wp-image-1437" /></p>
+<p>Creating this project will create a refactoring that will give you the option to reverse the name of any type declaration. So you can just run the project, select any type declaration and hit your quick actions key (<code>Ctrl</code> <code>.</code> by default) and you will see the <em>Reverse type name</em> action available.</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2015/10/ReverseTypeName.png" alt="ReverseTypeName" width="615" height="144" class="alignnone size-full wp-image-1438" /></p>
+<p>Now that we see that it works, let's look more into how it works. Every code refactoring overrides the <code>ComputeRefactoringsAsync</code> method. Inside this method, you compute the nodes in the syntax tree on which you want to provide refactoring options. Looking at the refactoring that reverses type names, it starts by finding the node from the SyntaxTree.</p>
+<pre><code>var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+
+// Find the node at the selection.
+var node = root.FindNode(context.Span);
+</code></pre>
+<p>Next, it checks the type of the node to see if it is a <code>TypeDeclarationSyntax</code>. If not, it will simply abort the refactoring registration.</p>
+<pre><code>// Only offer a refactoring if the selected node is a type declaration node.
+var typeDecl = node as TypeDeclarationSyntax;
+if (typeDecl == null)
+{
+    return;
+}
+</code></pre>
+<p>Finally, it will register a refactoring using the <code>RegisterRefactoring</code> on the <code>CodeRefactoringContext</code>. It registers a delegate that returns a <code>Task&lt;Solution&gt;</code>, which updates the solution with refactored code.</p>
+<pre><code>// For any type declaration node, create a code action to reverse the identifier text.
+var action = CodeAction.Create("Reverse type name", c =&gt; ReverseTypeNameAsync(context.Document, typeDecl, c));
+
+// Register this code action.
+context.RegisterRefactoring(action);
+</code></pre>
+<p>Doing this is enough to get the refactoring to appear in the quick actions dialog, but to actually get it to do something, we need to dig into the <code>ReverseTypeNameAsync</code> method.</p>
+<p>This method starts by computing the newly refactored name for the node</p>
+<pre><code>// Produce a reversed version of the type declaration's identifier token.
+var identifierToken = typeDecl.Identifier;
+var newName = new string(identifierToken.Text.ToCharArray().Reverse().ToArray());
+</code></pre>
+<p>Next it finds the symbol that represents the node in the semantic model, so it can properly rename the symbol across the solution.</p>
+<pre><code>// Get the symbol representing the type to be renamed.
+var semanticModel = await document.GetSemanticModelAsync(cancellationToken);
+var typeSymbol = semanticModel.GetDeclaredSymbol(typeDecl, cancellationToken);
+</code></pre>
+<p>Finally, it creates a new solution (remember these objects are immutable) with the renamed symbol. This is done using the <code>Renamer</code> object from the <code>Microsoft.CodeAnalysis.Rename</code> namespace.  This object takes care of all of the heavy lifting of renaming an object and ensuring that all references in the solution are properly renamed.</p>
+<pre><code>// Produce a new solution that has all references to that type renamed, including the declaration.
+var originalSolution = document.Project.Solution;
+var optionSet = originalSolution.Workspace.Options;
+var newSolution = await Renamer.RenameSymbolAsync(document.Project.Solution, typeSymbol, newName, optionSet, cancellationToken).ConfigureAwait(false);
+
+// Return the new solution with the now-uppercase type name.
+return newSolution;
+</code></pre>
+<p>That's all there is to it. As you can see, creating a refactoring in Visual Studio 2015 is a very easy task and gives you a lot of control in providing quick fixes to code. You can use this in a myriad of ways to make you and your team more productive and more consistent when using Visual Studio 2015.</p>
+<p><em>Image Credit: <a href="https://flic.kr/p/cDD36L">Ashley MacKinnon MacKinnon</a> via <a href="https://creativecommons.org/licenses/by/2.0/">Creative Commons</a></em></p>

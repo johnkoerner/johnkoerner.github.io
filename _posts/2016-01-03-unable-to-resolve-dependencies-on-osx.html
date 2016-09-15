@@ -1,0 +1,46 @@
+---
+layout: post
+status: publish
+published: true
+title: Unable to Resolve DNX Dependencies on OSX
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1513
+wordpress_url: https://johnkoerner.com/?p=1513
+date: '2016-01-03 19:04:25 -0500'
+date_gmt: '2016-01-03 19:04:25 -0500'
+categories:
+- C#
+- osx
+- dnx
+tags:
+- C#
+- osx
+- dnx
+---
+<p>I was building dot net core console applications on OSX and ran into an issue where certain core dependencies were not resolving when running <code>dnu build</code>. The error output I would get would be:</p>
+<pre><code>Building ConsoleApplication2 for DNX,Version=v4.5.1
+  Using Project dependency ConsoleApplication2 1.0.0
+    Source: /Users/john/Dev/ConsoleApplication2/project.json
+
+  Unable to resolve dependency fx/mscorlib
+
+  Unable to resolve dependency fx/System
+
+  Unable to resolve dependency fx/System.Core
+
+  Unable to resolve dependency fx/Microsoft.CSharp
+  ...
+</code></pre>
+<p>After doing some testing, I found that if I specified the core framework (dnxcore50) to the build command, then it would work properly.</p>
+<pre><code>dnu build --framework dnxcore50
+</code></pre>
+<p>After doing some more digging, I found that I did not have the mono framework installed on the machine, and thus the v4.5.1 build was failing. To correct this, I simply had to install the mono framework using <code>dnvm</code>:</p>
+<pre><code>dnvm upgrade -r mono
+</code></pre>
+<p>After that, the <code>dnu build</code> works properly and I can continue on my way.</p>

@@ -1,0 +1,130 @@
+---
+layout: post
+status: publish
+published: true
+title: Analyzing XML Comments in your Roslyn Code Analyzer
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1303
+wordpress_url: https://johnkoerner.com/?p=1303
+date: '2015-08-17 03:11:35 -0400'
+date_gmt: '2015-08-17 03:11:35 -0400'
+categories:
+- C#
+- Code Analysis
+- Roslyn
+tags:
+- C#
+- Code Analysis
+- roslyn
+- Visual Studio 2015
+---
+<p>In previous articles, we covered the basics of <a href="https://johnkoerner.com/csharp/navigating-trivia-in-your-diagnostic/">dealing with comments</a> in code analyzers. You'll recall that comments and other white space are referred to as trivia by the Roslyn compiler. XML Comments are also considered trivia, however, they are a special case of trivia called structured trivia.</p>
+<p>If, for example, you wanted to check to see that all public methods have some sort of XML comment, you could simply write an analyzer like this:</p>
+<pre><code>public override void Initialize(AnalysisContext context)
+{
+    context.RegisterSyntaxNodeAction(CheckMethods, SyntaxKind.MethodDeclaration);
+}
+
+private void CheckMethods(SyntaxNodeAnalysisContext syntaxNodeAnalysisContext)
+{
+    var node = syntaxNodeAnalysisContext.Node as MethodDeclarationSyntax;
+    if (node.HasStructuredTrivia)
+        return;
+
+    if (node.Modifiers.Any(SyntaxKind.PublicKeyword))
+        syntaxNodeAnalysisContext.ReportDiagnostic(Diagnostic.Create(Rule,node.GetLocation()));
+}
+</code></pre>
+<p>All that we are checking in that code is that the method has no structured trivia and that it is a public method. At this point, the analyzer really isn't doing anything useful, other than ensuring that the method has a leading xml comment indicator (<code>///</code>). Next we could modify this to verify that it actually has a summary node in the XML. To do this, we need to get the structured XML and then find the <code>XmlElementSytnax</code> nodes that have a name of summary.</p>
+<pre><code>private void CheckMethods(SyntaxNodeAnalysisContext syntaxNodeAnalysisContext)
+{
+    var node = syntaxNodeAnalysisContext.Node as MethodDeclarationSyntax;
+
+    if (!node.Modifiers.Any(SyntaxKind.PublicKeyword))
+        return;
+
+    var xmlTrivia = node.GetLeadingTrivia()
+        .Select(i =&gt; i.GetStructure())
+        .OfType&lt;DocumentationCommentTriviaSyntax&gt;()
+        .FirstOrDefault();
+
+    var hasSummary = xmlTrivia.ChildNodes()
+        .OfType&lt;XmlElementSyntax&gt;()
+        .Any(i =&gt; i.StartTag.Name.ToString().Equals("summary"));
+
+    if (!hasSummary)
+    {
+        syntaxNodeAnalysisContext.ReportDiagnostic(
+           Diagnostic.Create(Rule, node.Identifier.GetLocation(), "Missing Summary"));
+    }
+}
+</code></pre>
+<p>If we find the summary is missing, we raise a diagnostic at the <code>Identifier</code> location, such that only the method name gets underlined.</p>
+<p>We could take this a bit further by checking the parameters. To start we need to get the XmlElementSyntax nodes whose name are <code>param</code>. From those nodes, we will get all attributes that are of the type <code>XmlNameAttributeSyntax</code>.</p>
+<pre><code>var allParamNameAttributes = xmlTrivia.ChildNodes()
+    .OfType&lt;XmlElementSyntax&gt;()
+    .Where(i =&gt; i.StartTag.Name.ToString().Equals("param"))
+    .SelectMany(i =&gt; i.StartTag.Attributes.OfType&lt;XmlNameAttributeSyntax&gt;());
+</code></pre>
+<p>Once this query is evaluated, <code>allParamNameAttributes</code> contains a list of all name attributes within the XML comments. Using these nodes, we can compare the identifiers to the names of the parameters in the method declaration and raise any diagnostics where a parameter is not documented.</p>
+<pre><code>foreach (var param in node.ParameterList.Parameters)
+{
+    var existsInXmlTrivia = allParamNameAttributes
+                .Any(i=&gt;i.Identifier.ToString().Equals(param.Identifier.Text)) ;// ()
+
+    if (!existsInXmlTrivia)
+    {
+        syntaxNodeAnalysisContext.ReportDiagnostic(
+             Diagnostic.Create(Rule, param.GetLocation(), "Parameter Not Documented"));
+    }
+}
+</code></pre>
+<p>Putting it all together yields:</p>
+<pre><code>private void CheckMethods(SyntaxNodeAnalysisContext syntaxNodeAnalysisContext)
+{
+    var node = syntaxNodeAnalysisContext.Node as MethodDeclarationSyntax;
+
+    if (!node.Modifiers.Any(SyntaxKind.PublicKeyword))
+        return;
+
+    var xmlTrivia = node.GetLeadingTrivia()
+        .Select(i =&gt; i.GetStructure())
+        .OfType&lt;DocumentationCommentTriviaSyntax&gt;()
+        .FirstOrDefault();
+
+    var hasSummary = xmlTrivia.ChildNodes()
+        .OfType&lt;XmlElementSyntax&gt;()
+        .Any(i =&gt; i.StartTag.Name.ToString().Equals("summary"));
+
+    if (!hasSummary)
+    {
+        syntaxNodeAnalysisContext.ReportDiagnostic(
+            Diagnostic.Create(Rule, node.Identifier.GetLocation(), "Missing Summary"));
+    }
+
+    var allParamNameAttributes = xmlTrivia.ChildNodes()
+        .OfType&lt;XmlElementSyntax&gt;()
+        .Where(i =&gt; i.StartTag.Name.ToString().Equals("param"))
+        .SelectMany(i =&gt; i.StartTag.Attributes.OfType&lt;XmlNameAttributeSyntax&gt;());
+
+    foreach (var param in node.ParameterList.Parameters)
+    {
+        var existsInXmlTrivia = allParamNameAttributes
+                    .Any(i=&gt;i.Identifier.ToString().Equals(param.Identifier.Text)) ;// ()
+
+        if (!existsInXmlTrivia)
+        {
+            syntaxNodeAnalysisContext.ReportDiagnostic(
+               Diagnostic.Create(Rule, param.GetLocation(), "Parameter Not Documented"));
+        }
+    }
+}
+</code></pre>
+<p>As you can see, it is possible to get at the XML comments for any given node in the syntax tree, provided you know where to look. There is obviously a lot more work that could be put into this analyzer to ensure you are following all the rules. If you are looking for a complete analyzer, look no further than the <a href="https://github.com/DotNetAnalyzers/StyleCopAnalyzers">StyleCopAnalyzers</a> project on GitHub. They have a handful of <a href="https://github.com/DotNetAnalyzers/StyleCopAnalyzers/tree/master/StyleCop.Analyzers/StyleCop.Analyzers/DocumentationRules">documentation rules</a> that cover the cases I outlined and many more. Note that some of the code in this article to get at the XML trivia was based on code that exists in the <a href="https://github.com/DotNetAnalyzers/StyleCopAnalyzers/blob/master/StyleCop.Analyzers/StyleCop.Analyzers/Helpers/XmlCommentHelper.cs">XmlCommentHelpers</a> in the StyleCopyAnalyzers project.</p>
+<p><em>Image Credit: <a href="https://flic.kr/p/5dwEcg">Stéfan</a> via <a href="https://creativecommons.org/licenses/by-sa/2.0/">Creative Commons</a></em></p>

@@ -1,0 +1,132 @@
+---
+layout: post
+status: publish
+published: true
+title: Working with Namespace Names in a Code Analyzer
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1393
+wordpress_url: https://johnkoerner.com/?p=1393
+date: '2015-09-19 13:18:42 -0400'
+date_gmt: '2015-09-19 13:18:42 -0400'
+categories:
+- C#
+- Code Analysis
+tags:
+- C#
+- Code Analysis
+- roslyn
+- Visual Studio 2015
+---
+<p>Let's imagine we wanted to create an analyzer that compared the name of the namespace to the path of the folder in which the file it resides. If the namespace doesn't match the folder structure, then we should raise a diagnostic. As we have seen in a <a href="https://johnkoerner.com/csharp/checking-the-name-of-the-file-you-are-analyzing/">previous post</a>, you can get at the file name for the code you are analyzing from a <code>SyntaxTreeAction</code>. To start, we'll register a new <code>SyntaxTreeAction</code> and get the file path. We can also take that path and turn it into something that resembles a namespace declaration:</p>
+<pre><code>#!cs
+compilationSyntax.RegisterSyntaxTreeAction((syntaxTreeContext) =&gt;
+{
+    var filePath = syntaxTreeContext.Tree.FilePath;
+
+    if (filePath == null)
+        return;
+
+    var parentDirectory = System.IO.Path.GetDirectoryName(filePath);
+
+    // This will only work on windows and is not very robust.
+    var parentDirectoryWithDots = parentDirectory.Replace("\\", ".");
+}
+</code></pre>
+<p>Now that we have the path to use for comparison, we can get the namespaces in the file and then perform the comparison. We can get all of the namespaces in a <code>SyntaxTree</code> by using the <code>OfType</code> extension method and find all <code>NamespaceDeclarationSyntax</code> node types. Note: Make sure you use <code>DescendantNodes</code> and not <code>ChildNodes</code> to ensure you get all nested namespace declarations.</p>
+<pre><code>#!cs
+var namespaceNodes = syntaxTreeContext.Tree.GetRoot().DescendantNodes().OfType&lt;NamespaceDeclarationSyntax&gt;();
+</code></pre>
+<p>We can loop over those nodes and compare the name to the folder path:</p>
+<pre><code>#!cs
+foreach (var ns in namespaceNodes)
+{
+    var name = ????
+
+    if (!parentDirectoryWithDots.EndsWith(name, StringComparison.OrdinalIgnoreCase))
+    {
+        syntaxTreeContext.ReportDiagnostic(Diagnostic.Create(
+           Rule, ns.Name.GetLocation(), parentDirectoryWithDots));
+    }
+}
+</code></pre>
+<p>You might be tempted to just use the <code>ns.ToFullString()</code> method to get the name of the namespace, however, this does not work for nested namespaces. For example, if we have the code:</p>
+<pre><code>#!cs
+namespace Foo
+{
+    namespace Bar
+    {
+    }
+}
+</code></pre>
+<p>The full namespace for <code>Bar</code> is <code>Foo.Bar</code>, but the <code>ns.ToFullString()</code> method will only return <code>Bar</code>. To properly get the full name, we need to ask our friend the <code>SemanticModel</code> for the <code>Symbol</code> for this <code>SyntaxNode</code> and then we can get the <code>DisplayString</code> from there. Getting the semantic model requires a little massaging of our registration code.</p>
+<p>The <code>SemanticModel</code> is available off of the <code>Compilation</code> object. As we discussed in the <a href="https://johnkoerner.com/csharp/working-with-types-in-your-analyzer/">"Working with Types in Your Analyzer"</a> post, you can access the <code>Compilation</code> object by registering for a <code>CompilationStartAction</code> and then registering your other actions from that context.</p>
+<p>So our registration code, can be modified to:</p>
+<pre><code>#!cs
+context.RegisterCompilationStartAction((compilationContext) =&gt;
+{
+    compilationContext.RegisterSyntaxTreeAction((syntaxTreeContext) =&gt;
+    {
+        var semModel = compilationContext.Compilation.GetSemanticModel(syntaxTreeContext.Tree);
+        //...
+    });
+});
+</code></pre>
+<p>Then the code to check the namespace name can use the semantic model to get the <code>INamespaceSymbol</code> and get the display string from that.</p>
+<pre><code>#!cs
+foreach (var ns in namespaceNodes)
+{
+    var symbolInfo = semModel.GetDeclaredSymbol(ns) as INamespaceSymbol;
+    var name = symbolInfo.ToDisplayString();
+
+    if (!parentDirectoryWithDots.EndsWith(name, StringComparison.OrdinalIgnoreCase))
+    {
+        syntaxTreeContext.ReportDiagnostic(Diagnostic.Create(
+           Rule, ns.Name.GetLocation(), parentDirectoryWithDots));
+    }
+}
+</code></pre>
+<p>So, in the end, the full analyzer method looks like this:</p>
+<pre><code>#!cs
+public override void Initialize(AnalysisContext context)
+{
+    context.RegisterCompilationStartAction((compilationContext) =&gt;
+    {
+        compilationContext.RegisterSyntaxTreeAction((syntaxTreeContext) =&gt;
+        {
+            var semModel = compilationContext.Compilation.GetSemanticModel(syntaxTreeContext.Tree);
+            var filePath = syntaxTreeContext.Tree.FilePath;
+
+            if (filePath == null)
+                return;
+
+            var parentDirectory = System.IO.Path.GetDirectoryName(filePath);
+
+            // This will only work on windows and is not very robust.
+            var parentDirectoryWithDots = parentDirectory.Replace("\\", ".");
+
+            var namespaceNodes = syntaxTreeContext.Tree.GetRoot().DescendantNodes().OfType&lt;NamespaceDeclarationSyntax&gt;();
+
+            foreach (var ns in namespaceNodes)
+            {
+
+                var symbolInfo = semModel.GetDeclaredSymbol(ns) as INamespaceSymbol;
+                var name = symbolInfo.ToDisplayString();
+
+                if (!parentDirectoryWithDots.EndsWith(name, StringComparison.OrdinalIgnoreCase))
+                {
+                    syntaxTreeContext.ReportDiagnostic(Diagnostic.Create(
+                       Rule, ns.Name.GetLocation(), parentDirectoryWithDots));
+                }
+            }
+        });
+    });
+}
+</code></pre>
+<p>And that is everything. I think this post really shows some of the power of using the <code>SyntaxTree</code> and the <code>SemanticModel</code> together to put together an analyzer that can process real world code. This post was inspired by a <a href="http://stackoverflow.com/q/32593116/573218">question</a> I <a href="http://stackoverflow.com/a/32597471/573218">answered</a> on StackOverflow and took a few iterations to get right.  I thought I would share the process of how I got there so others can learn from it.  If you have done something written a similar analyzer or have great examples of using the <code>SemanticModel</code> and <code>SyntaxTree</code> together, let's talk about it in the comments below.</p>
+<p><em>Image Credit: <a href="https://flic.kr/p/57D5tY">Tech Cocktail</a> via <a href="https://creativecommons.org/licenses/by-sa/2.0/">Creative Commons</a></em></p>

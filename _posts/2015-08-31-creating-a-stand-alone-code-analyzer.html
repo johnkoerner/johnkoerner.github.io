@@ -1,0 +1,120 @@
+---
+layout: post
+status: publish
+published: true
+title: Creating a Stand-Alone Code Analyzer
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1355
+wordpress_url: https://johnkoerner.com/?p=1355
+date: '2015-08-31 03:32:42 -0400'
+date_gmt: '2015-08-31 03:32:42 -0400'
+categories:
+- C#
+- Code Analysis
+- Roslyn
+tags:
+- C#
+- Code Analysis
+- vs2015
+- Visual Studio 2015
+---
+<p>Many of my past posts have covered the process of creating an analyzer that is part of a Visual Studio addin or nuget package. However, there are times that you might want to just create a command line utility to do some analysis of a project. This type of project is very useful in prototyping out ideas or writing a one off utility to get an idea of the state of a solution. It can also be very useful for consultants wanting to run a custom set of tools against customer solutions.</p>
+<p>To create a stand alone code analyzer, you can select the Stand-Alone Code Analysis Tool project template from the Extensibility sections of the new project window.</p>
+<p><a href="https://johnkoerner.com/wp-content/uploads/2015/08/NewStandAloneProject.png"><img src="https://johnkoerner.com/wp-content/uploads/2015/08/NewStandAloneProject.png" alt="NewStandAloneProject" width="1413" height="980" class="alignnone size-full wp-image-1358" /></a></p>
+<p>At this point, you just have a basic console application that is referencing the code analysis DLLs. To start analyzing a project, you need to load it up. To do this, we will create a MSBuildWorkSpace and load the solution file:</p>
+<pre><code>var ws = Microsoft.CodeAnalysis.MSBuild.MSBuildWorkspace.Create();
+var soln = ws.OpenSolutionAsync(@"Z:\Dev\Temp\SimpleWinformsTestApp\SimpleWinformsTestApp.sln").Result;
+</code></pre>
+<p>Next we will get the first project from the solution and get the <code>Compilation</code> object, so that we can access things like the <code>SyntaxTree</code>.</p>
+<pre><code>var proj = soln.Projects.Single();
+var compilation = proj.GetCompilationAsync().Result;
+</code></pre>
+<p>Now that we have the <code>Compliation</code> object we have a myriad of options available to us and we can start doing analysis. In this example, I want to find all classes that inherit from <code>System.Windows.Forms.Form</code>. So, as I described in the <a href="https://johnkoerner.com/csharp/working-with-types-in-your-analyzer/">Working With Types in Your Analyzer</a> post, we can get the type by its metadata name form the <code>Compilation</code> object:</p>
+<pre><code>string TEST_ATTRIBUTE_METADATA_NAME = "System.Windows.Forms.Form";
+var testAttributeType = compilation.GetTypeByMetadataName(TEST_ATTRIBUTE_METADATA_NAME);
+</code></pre>
+<p>To get at the classes declared in the project, we need to loop over all of the <code>SyntaxTrees</code> in the <code>Compilation</code> and then find all of the <code>ClassDeclarationSyntax</code> nodes declared in those trees:</p>
+<pre><code>foreach (var tree in compilation.SyntaxTrees)
+{
+    var classes = tree.GetRoot().DescendantNodesAndSelf().Where(x =&gt; x.IsKind(SyntaxKind.ClassDeclaration));
+    foreach (var c in classes)
+    {
+     // ...
+    }
+// ...
+}
+</code></pre>
+<p>Once we have all of the classes, we need to determine if the class inherits from the <code>testAttributeType</code> we declared earlier in the analysis. The <code>ClassDeclarationSyntax</code> has a <code>BaseList</code> property which defines all of the base classes for the class. So from these base classes, we can get the type information (from the <code>SemanticModel</code>) and compare it to the <code>testAttributeType</code> to see if it is a Windows Form:</p>
+<pre><code>var classDec = (ClassDeclarationSyntax)c;
+var bases = classDec.BaseList;
+
+if (bases?.Types != null)
+{
+    foreach (var b in bases.Types)
+    {
+        var nodeType = compilation.GetSemanticModel(tree).GetTypeInfo(b.Type);
+        // Is the node a System.Windows.Forms.Form?
+        if (nodeType.Type.Equals(testAttributeType))
+        {
+            Console.WriteLine(classDec.Identifier.Text);
+        }
+    }
+}
+</code></pre>
+<p>The full program is as follows:</p>
+<pre><code>using System;
+using System.Linq;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+
+namespace StandAloneCodeAnalysis
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            var ws = Microsoft.CodeAnalysis.MSBuild.MSBuildWorkspace.Create();
+            var soln = ws.OpenSolutionAsync(@"Z:\Dev\Temp\SimpleWinformsTestApp\SimpleWinformsTestApp.sln").Result;
+            var proj = soln.Projects.Single();
+            var compilation = proj.GetCompilationAsync().Result;
+
+            string TEST_ATTRIBUTE_METADATA_NAME = "System.Windows.Forms.Form";
+            var testAttributeType = compilation.GetTypeByMetadataName(TEST_ATTRIBUTE_METADATA_NAME);
+
+            foreach (var tree in compilation.SyntaxTrees)
+            {
+                var classes = tree.GetRoot().DescendantNodesAndSelf().Where(x =&gt; x.IsKind(SyntaxKind.ClassDeclaration));
+                foreach (var c in classes)
+                {
+                    var classDec = (ClassDeclarationSyntax)c;
+                    var bases = classDec.BaseList;
+
+                    if (bases?.Types != null)
+                    {
+                        foreach (var b in bases.Types)
+                        {
+                            var nodeType = compilation.GetSemanticModel(tree).GetTypeInfo(b.Type);
+
+                            // Is the node a System.Windows.Forms.Form?
+                            if (nodeType.Type.Equals(testAttributeType))
+                            {
+                                Console.WriteLine(classDec.Identifier.Text);
+                            }
+                        }
+                    }
+                }
+            }
+            Console.ReadKey();
+        }
+    }
+}
+</code></pre>
+<p>As you can see, creating an analyzer that works as a standalone project is not too different from creating an analyzer that runs inside of Visual Studio. There are some basic differences and you are required to setup a little more yourself, but the underlying logic does not change much.</p>
+<p><em>Image Credit: <a href="https://flic.kr/p/9mb9Hi">Vincent Lock</a> via <a href="https://creativecommons.org/licenses/by/2.0/">Creative Commons</a></em></p>

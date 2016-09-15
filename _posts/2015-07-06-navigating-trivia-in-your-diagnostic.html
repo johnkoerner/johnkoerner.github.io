@@ -1,0 +1,138 @@
+---
+layout: post
+status: publish
+published: true
+title: Navigating Trivia in your Diagnostic
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1151
+wordpress_url: https://johnkoerner.com/?p=1151
+date: '2015-07-06 01:23:09 -0400'
+date_gmt: '2015-07-06 01:23:09 -0400'
+categories:
+- C#
+- Code Analysis
+- Roslyn
+tags:
+- Trivia
+- Comments
+---
+<p>The requirements for analyzer might seem straightforward at first, but sometimes there can be some hidden requirements. For example, I recently worked on an analyzer that needed to determine if a comment was empty. Seems easy, right? Just get the comment and determine if it has any text. If it doesn’t, then it is a violation. While that seems easy on the surface, there were some nuances to the requirements that required a little more work. Consider the following code:</p>
+<pre><code>void DoWork()
+{
+    //
+    Console.WriteLine(“A”);
+}
+</code></pre>
+<p>That is an obvious violation of the rule and should be caught, but what about this:</p>
+<pre><code>// Version information for an assembly consists of the following four values: 
+// 
+//      Major Version 
+//      Minor Version 
+//      Build Number 
+//      Revision 
+// 
+// You can specify all the values or you can default the Build and Revision Numbers 
+// by using the '*' as shown below: 
+// [assembly: AssemblyVersion("1.0.*")] 
+[assembly: AssemblyVersion("1.0.0.0")]
+</code></pre>
+<p>The spacing within the comment makes it more readable and should not cause a violation. In order to deal with this, I need to determine if the comment I am looking at is part of a block. My requirements ended up being the following:</p>
+<ul>
+<li>A multi-line comment cannot be empty.</li>
+<li>Any stand-alone single line comment cannot be empty.</li>
+<li>The first comment in a block of single line comments cannot be empty.</li>
+<li>The last comment in a block of single line comments cannot be empty.</li>
+<li>Any non-first or non-last comment in a block of single line comments can be empty.</li>
+</ul>
+<p>Since multi-line comments don't require much special work, I will ignore them for the rest of this post. If you want to see the full implementation, you can look at <a href="https://github.com/johnkoerner/StyleCopAnalyzers/blob/SA1120/StyleCop.Analyzers/StyleCop.Analyzers/ReadabilityRules/SA1120CommentsMustContainText.cs">SA1120</a> in the StyleCop Analyzers GitHub project.</p>
+<p>Luckily, the StyleCop Analyzers project already had some <a href="https://github.com/DotNetAnalyzers/StyleCopAnalyzers/blob/master/StyleCop.Analyzers/StyleCop.Analyzers/Helpers/TriviaHelper.cs">helper functions</a> for dealing with Trivia. For example, there is a method called <code>GetContainingTriviaList</code>, which will give you back the full list of trivia that contains the current trivia you are analyzing.</p>
+<pre><code>internal static SyntaxTriviaList GetContainingTriviaList(SyntaxTrivia trivia, out int triviaIndex)
+{
+    var token = trivia.Token;
+    triviaIndex = token.TrailingTrivia.IndexOf(trivia);
+    if (triviaIndex != -1)
+    {
+        var nextToken = token.GetNextToken(includeZeroWidth: true);
+        return token.TrailingTrivia.AddRange(nextToken.LeadingTrivia);
+    }
+    var prevToken = token.GetPreviousToken();
+    triviaIndex = prevToken.TrailingTrivia.Count + token.LeadingTrivia.IndexOf(trivia);
+    return prevToken.TrailingTrivia.AddRange(token.LeadingTrivia);
+}
+</code></pre>
+<p>As an example, in the code above with all of the version information it would return a list with the following elements in it (as seen in the Syntax Visualizer):</p>
+<p><a href="https://johnkoerner.com/wp-content/uploads/2015/07/FullListOfTrivia.png"><img src="https://johnkoerner.com/wp-content/uploads/2015/07/FullListOfTrivia.png" alt="FullListOfTrivia" width="485" height="441" class="alignnone size-full wp-image-1154" /></a></p>
+<p>After I got the list, I just needed to determine if the node I am analyzing is the first or last comment in a block. To do this, I can write a few helper methods to walk the list:</p>
+<pre><code>bool IsWhiteSpace(SyntaxTrivia triviaNode)
+{
+    switch (triviaNode.Kind())
+    {
+        case SyntaxKind.EndOfLineTrivia:
+        case SyntaxKind.WhitespaceTrivia:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool IsFirstComment(SyntaxTriviaList triviaList, int commentIndex)
+{
+    for (var i = 0; i &lt; commentIndex; i++)
+     {
+        if (IsWhiteSpace(triviaList[i]))
+            continue;
+        return false;
+    }
+    return true;
+}
+
+bool IsLastComment(SyntaxTriviaList triviaList, int commentIndex)
+{
+    for (var i = commentIndex + 1; i &lt; triviaList.Count - 1; i++)
+     {
+        if (IsWhiteSpace(triviaList[i]))
+            continue;
+        return false;
+    }
+    return true;
+}
+</code></pre>
+<p>The <code>IsWhiteSpace</code> method is used to determine if the trivia in the list is just white-space that can be ignored as irrelevant. Using that method, I simply walk from the beginning of the list to the current node's index to determine if it is the first comment. Or, to determine if it is the last comment, I simply walk from the index to the end of the list. If at any point I run into a non-white-space node, I know it is not the last comment in the block.</p>
+<p>Now that all the pieces are in place, consuming these methods is straightforward.</p>
+<pre><code>private void HandleSyntaxTree(SyntaxTreeAnalysisContext context)
+{
+    SyntaxNode root = context.Tree.GetCompilationUnitRoot(context.CancellationToken);
+
+    foreach (var node in root.DescendantTrivia())
+    {
+        switch (node.Kind())
+        {
+            case SyntaxKind.SingleLineCommentTrivia:
+                // Remove the leading // from the comment
+                var commentText = node.ToString().Substring(2);
+                int index = 0;
+
+                var list = GetContainingTriviaList(node, out index);
+                bool isFirst = IsFirstComment(list, index);
+                bool isLast = IsLastComment(list, index);
+
+                if (string.IsNullOrWhiteSpace(commentText) &amp;&amp; (isFirst || isLast))
+                {
+                    var diagnostic = Diagnostic.Create(Rule, node.GetLocation());
+                    context.ReportDiagnostic(diagnostic);
+                }
+
+                break;
+        }
+    }
+}
+</code></pre>
+<p>For every <code>SingleLineCommentTrivia</code>, I get the comment text and the list to which the comment belongs. I then check if the comment is the first or last non-white-space node in the list. If it is first or last and the comment text is blank, then I raise the diagnostic.</p>
+<p>As I demonstated, accessing a comment and the contents around it can be done with very little effort. Using some nice helper functions that are already out there can make your life even easier. The final version of this analyzer is available as part of the <a href="https://github.com/DotNetAnalyzers/StyleCopAnalyzers">StyleCop Analyzers project</a> on GitHub. This specific analyzer is <a href="https://github.com/johnkoerner/StyleCopAnalyzers/blob/SA1120/StyleCop.Analyzers/StyleCop.Analyzers/ReadabilityRules/SA1120CommentsMustContainText.cs">SA1120</a> and I adapted some of the code to make this post easier to consume.</p>
+<p><em>Image Credit: <a href="https://flic.kr/p/kH4r5Z">Atomic Taco</a> via <a href="https://creativecommons.org/licenses/by-sa/2.0/">Creative Commons</a></em></p>

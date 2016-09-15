@@ -1,0 +1,90 @@
+---
+layout: post
+status: publish
+published: true
+title: Creating a Nuget Package For Your Analyzer
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1367
+wordpress_url: https://johnkoerner.com/?p=1367
+date: '2015-09-07 02:38:57 -0400'
+date_gmt: '2015-09-07 02:38:57 -0400'
+categories:
+- C#
+- Code Analysis
+- Roslyn
+tags:
+- C#
+- Code Analysis
+- roslyn
+- Visual Studio 2015
+- nuget
+---
+<p>Once you have developed a nice set of analyzers, you may want to share them with the world. Nuget is the most common way of sharing libraries these days and in Visual Studio 2015, you can add analyzers via Nuget packages. If you start with the Visual Studio templates to create your analyzers and you used the <code>Analyzer With Code Fix (Nuget + VSIX)</code> template, then your project is already generating the Nuget package for you. Just look in your output directory and you should see a <code>{ProjectName}.Nupkg</code> file.</p>
+<p>To see how this is implemented, we can first look at the post build step for the analyzer project. You will see that it calls out to <code>nuget.exe</code> to pack using a <code>.nuspec</code> file.</p>
+<pre><code>"$(SolutionDir)\packages\NuGet.CommandLine.2.8.2\tools\NuGet.exe" pack Diagnostic.nuspec -NoPackageAnalysis -OutputDirectory .
+</code></pre>
+<p>Looking into the <code>Diagnostic.nuspec</code> file in the project, we see the following.</p>
+<pre><code>&lt;?xml version="1.0"?&gt;
+&lt;package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd"&gt;
+  &lt;metadata&gt;
+    &lt;id&gt;AnalyzerSamples&lt;/id&gt;
+    &lt;version&gt;1.0.0.0&lt;/version&gt;
+    &lt;title&gt;AnalyzerSamples&lt;/title&gt;
+    &lt;authors&gt;AnalyzerSamples&lt;/authors&gt;
+    &lt;owners&gt;AnalyzerSamples&lt;/owners&gt;
+    &lt;licenseUrl&gt;http://LICENSE_URL_HERE_OR_DELETE_THIS_LINE&lt;/licenseUrl&gt;
+    &lt;projectUrl&gt;http://PROJECT_URL_HERE_OR_DELETE_THIS_LINE&lt;/projectUrl&gt;
+    &lt;iconUrl&gt;http://ICON_URL_HERE_OR_DELETE_THIS_LINE&lt;/iconUrl&gt;
+    &lt;requireLicenseAcceptance&gt;false&lt;/requireLicenseAcceptance&gt;
+    &lt;description&gt;AnalyzerSamples&lt;/description&gt;
+    &lt;releaseNotes&gt;Summary of changes made in this release of the package.&lt;/releaseNotes&gt;
+    &lt;copyright&gt;Copyright&lt;/copyright&gt;
+    &lt;tags&gt;AnalyzerSamples, analyzers&lt;/tags&gt;
+    &lt;frameworkAssemblies&gt;
+      &lt;frameworkAssembly assemblyName="System" targetFramework="" /&gt;
+    &lt;/frameworkAssemblies&gt;
+  &lt;/metadata&gt;
+  &lt;files&gt;
+    &lt;file src="*.dll" target="tools\analyzers\" exclude="**\Microsoft.CodeAnalysis.*;**\System.Collections.Immutable.*;**\System.Reflection.Metadata.*" /&gt;
+    &lt;file src="tools\*.ps1" target="tools\" /&gt;
+  &lt;/files&gt;
+&lt;/package&gt;
+</code></pre>
+<p>The metadata section of the <code>Diagnostic.nuspec</code> is pretty standard. If you are unsure what values to provide, the <a href="https://docs.nuget.org/create/nuspec-reference">Nuspec Reference</a> page can provide you guidance. The more interesting part of this <code>.nuspec</code> is the <code>files</code> section. The first <code>file</code> entry copies the output DLLs to the <code>tools\analyzers</code> output folder. This is a convention for analyzers as outlined in the <a href="https://docs.nuget.org/create/analyzers-conventions">Nuget Analayzers Conventions</a> documentation. If you need to target specific languages or framework versions with your analyzer, you can use a more complex folder structure as described in the conventions document. For consumers using Nuget 3 with a project.json, these conventions are all that are needed to install your analyzers. However, for Nuget 2 users with a packages.config file, you will need the second <code>file</code> entry as described below.</p>
+<p>The second <code>file</code> entry copies a few PowerShell scripts to your nuget package that will be run on the install and uninstall of your project. The project contains two scripts <code>install.ps1</code> and <code>uninstall.ps1</code> which are run when your analyzer package is installed and uninstalled respectively. For more information on PowerShell scripts in nuget packages, see the <a href="https://docs.nuget.org/create/creating-and-publishing-a-package#automatically-running-powershell-scripts-during-package-installation-and-removal">Creating and Publishing a Package</a> documentation.</p>
+<p>Now we can look into the install and uninstall scripts to see what they do. The <code>install.ps1</code> script starts with the following</p>
+<pre><code>param($installPath, $toolsPath, $package, $project)
+
+$analyzersPath = join-path $toolsPath "analyzers"
+
+# Install the language agnostic analyzers.
+foreach ($analyzerFilePath in Get-ChildItem $analyzersPath -Filter *.dll)
+{
+    if($project.Object.AnalyzerReferences)
+    {
+        $project.Object.AnalyzerReferences.Add($analyzerFilePath.FullName)
+    }
+}
+</code></pre>
+<p>This determines the analyzers path using the <code>$toolsPath</code> variable passed into the function and then it loops over all of the DLLs in the <code>$toolsPath\analzyers</code> folder and calls the <code>AnalyzerReferences.Add</code> method to add the DLL as an analyzer reference. The next section of the <code>install.ps1</code> does the following:</p>
+<pre><code># Install language specific analyzers.
+# $project.Type gives the language name like (C# or VB.NET)
+$languageAnalyzersPath = join-path $analyzersPath $project.Type
+
+foreach ($analyzerFilePath in Get-ChildItem $languageAnalyzersPath -Filter *.dll)
+{
+    if($project.Object.AnalyzerReferences)
+    {
+        $project.Object.AnalyzerReferences.Add($analyzerFilePath.FullName)
+    }
+}
+</code></pre>
+<p>This section of the script basically does the same thing as the first, except that it looks in the <code>$toolsPath\analzyers\{language}</code> folder for all DLLs and then adds them as analyzers to the project.</p>
+<p>The uninstall.ps1 just does the reverse of the install and calls the <code>Remove</code> method on the <code>AnalyzerReferences</code> object.</p>
+<p>That's it. When you build, the nuget package is generated for you. If you want to push it up to the official nuget servers, you can follow the documentation in the <a href="https://docs.nuget.org/create/creating-and-publishing-a-package#user-content-publishing-in-nuget-gallery">Publishing in Nuget Gallery</a> section of the <a href="https://docs.nuget.org/create/creating-and-publishing-a-package">Creating and Publishing A Package</a> nuget documentation. As you can see, creating a Nuget package for your analyzer is very easy and if you are taking the time to create quality analyzers, then you should put forth the extra effort to make them as easy to install and use as possible.</p>

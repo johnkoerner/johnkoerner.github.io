@@ -1,0 +1,39 @@
+---
+layout: post
+status: publish
+published: true
+title: Stop ignoring an update in IntelliJ
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 61
+wordpress_url: http://johnkoerner.net/?p=61
+date: '2013-12-09 23:13:26 -0500'
+date_gmt: '2013-12-09 23:13:26 -0500'
+categories:
+- Java
+tags: []
+---
+<p>Occasionally IntelliJ pops up the update dialog asking me to update to the latest versoin:</p>
+<p><img src="http://johnkoerner.net/wp-content/uploads/2013/12/bce57e68a07b175de1269b23bf0b6bd3.png" alt="" /></p>
+<p>Usually I'll just click <code>Remind Me Later</code> and continue on my way, but this time I clicked the <code>Ignore This Update</code> button. Now anytime I go to check for updates, the event log states:</p>
+<blockquote>
+<p>Update Info<br />
+  You already have the latest version of IntelliJ IDEA installed.<br />
+  To configure automatic update settings, see the Updates dialog of your IDE settings</p>
+</blockquote>
+<p>After some digging, I found a <a href="http://devnet.jetbrains.com/thread/435321">post</a> from Dmitry Jemerov on the Jet Brains support forum which stated:</p>
+<blockquote>
+<p>In the current build, you need to edit the settings manually (under <UpdatesConfigurable> in other.xml).</p>
+</blockquote>
+<p>That's good info, unfortunately it doesn't provide any information on the location of <code>other.xml</code>. After a quick check of the normal locations, I was able to find <code>other.xml</code> at <code>%userprofile%\.IdeaIC12\config\options</code>.</p>
+<p>Once in that file you need to search for <code>myIgnoredBuildNumbers</code> and simply clear out the content, so it looks like this:</p>
+<pre><code>#!xml
+&lt;option name="myIgnoredBuildNumbers"&gt;
+&lt;/option&gt;
+</code></pre>
+<p>Now IntelliJ will notify you of the update again and you can keep on telling it to remind you later.</p>

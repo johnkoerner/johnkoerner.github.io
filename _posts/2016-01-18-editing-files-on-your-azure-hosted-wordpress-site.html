@@ -1,0 +1,33 @@
+---
+layout: post
+status: publish
+published: true
+title: Editing Files on your Azure Hosted Wordpress Site
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1534
+wordpress_url: https://johnkoerner.com/?p=1534
+date: '2016-01-18 04:21:08 -0500'
+date_gmt: '2016-01-18 04:21:08 -0500'
+categories:
+- Azure
+- Wordpress
+tags: []
+---
+<p>I host this blog on Windows Azure using WordPress. There have been times where I needed to edit my web.config file or manually remove some plugins that were causing trouble. After searching around quite a bit, I found that the easiest way to do this is to use Visual Studio Online to edit the files in my hosted site.</p>
+<p>To start, you need to add the Visual Studio Online extension to your Web App. To do this, select the tools option from your Web App and select the <code>Extensions</code> menu in the <code>Develop</code> section.</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2016/01/AzureTools.png" alt="AzureTools" width="294" height="235" class="alignnone size-full wp-image-1538" /></p>
+<p>Next, select the Add button to add a new extension.</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2016/01/AddExtension.png" alt="AddExtension" width="294" height="117" class="alignnone size-full wp-image-1537" /></p>
+<p>Select <code>Choose Extension</code> and find the <code>Visual Studio Online</code> extension.</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2016/01/VisualStudioExtension.png" alt="VisualStudioExtension" width="617" height="198" class="alignnone size-full wp-image-1536" /></p>
+<p>Once installed, you can then select the <code>Visual Studio Online</code> extension from the Extensions view and select the <code>Browse</code> button. This will launch a new window from which you can explore the contents.</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2016/01/Browse.png" alt="Browse" width="250" height="113" class="alignnone size-full wp-image-1535" /></p>
+<p>For, example, you can select and open your web.config file and quickly make changes to it.</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2016/01/VSOEditWebConfig.png" alt="VSOEditWebConfig" width="1482" height="448" class="alignnone size-full wp-image-1542" /></p>
+<p>I have found this tool useful a few times, allowing me to <a href="http://stackoverflow.com/questions/24966134/woff-file-mime-type-and-azure">enable woff files</a> and to <a href="http://blogs.msdn.com/b/benjaminperkins/archive/2014/01/07/https-only-on-windows-azure-web-sites.aspx">enable SSL</a> on all pages. Hopefully you find it as useful as I do.</p>

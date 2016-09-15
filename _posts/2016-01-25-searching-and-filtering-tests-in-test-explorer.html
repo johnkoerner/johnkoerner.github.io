@@ -1,0 +1,150 @@
+---
+layout: post
+status: publish
+published: true
+title: Searching and Filtering Tests in Test Explorer
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1548
+wordpress_url: https://johnkoerner.com/?p=1548
+date: '2016-01-25 03:25:08 -0500'
+date_gmt: '2016-01-25 03:25:08 -0500'
+categories:
+- C#
+- Testing
+- vs2015
+tags:
+- C#
+- vs2015
+- Visual Studio 2015
+- Unit Tests
+---
+<p>If you take a quick glance at the Test Explorer window in Visual Studio 2015, you might not notice all of the power that you have in that little window. To start, there is a grouping icon, that allows you to group your tests by various properties. The grouping is a great way to get common tests together so you can easily select them and run them in test explorer.</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2016/01/TestExplorerGroupBy.png" alt="TestExplorerGroupBy" width="398" height="55" class="alignnone size-full wp-image-1549" /></p>
+<p>You have the option to group by:</p>
+<table>
+<thead>
+<tr>
+<th>
+        Group By
+      </th>
+<th>
+        Description
+      </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+        Class
+      </td>
+<td>
+        This will group by the class name to which the test belongs. Note: This is not the fully qualified class name, so if you have multiple classes in different namespaces with the same name, they will be hard to differentiate.
+      </td>
+</tr>
+<tr>
+<td>
+        Duration
+      </td>
+<td>
+        This will group by the duration of the last test run. It uses 3 categories when grouping (Fast < 100ms, Medium > 100ms, and Slow > 1 sec).
+      </td>
+</tr>
+<tr>
+<td>
+        Outcome
+      </td>
+<td>
+        This will group by the outcome of the last run of the tests. It uses 3 categories when grouping (Passed Tests, Failed Tests, and Skipped Tests).
+      </td>
+</tr>
+<tr>
+<td>
+        Traits
+      </td>
+<td>
+        This will group tests based on the <code>TestCategory</code>, <code>Owner</code>, <code>Priority</code>, and <code>TestProperty</code> attributes assigned to tests. Note: Tests can have multiple trait attributes assigned to them and thus a single test could appear multiple times in this view.
+      </td>
+</tr>
+<tr>
+<td>
+        Project
+      </td>
+<td>
+        This will group tests by the project to which they belong.
+      </td>
+</tr>
+</tbody>
+</table>
+<p>While the grouping is nice, the real power in this dialog is the search feature. From the <a href="https://msdn.microsoft.com/en-us/library/hh270865.aspx">documentation</a>, you can search on the following:</p>
+<table>
+<thead>
+<tr>
+<th>Qualifier</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Trait</td>
+<td>Searches both trait category and value for matches. The syntax to specify trait categories and values are defined by the unit test framework.</td>
+</tr>
+<tr>
+<td>Project</td>
+<td>Searches the test project names for matches.</td>
+</tr>
+<tr>
+<td>Error Message</td>
+<td>Searches the user-defined error messages returned by failed asserts for matches.</td>
+</tr>
+<tr>
+<td>File Path</td>
+<td>Searches the fully qualified file name of test source files for matches.</td>
+</tr>
+<tr>
+<td>Fully Qualified Name</td>
+<td>Searches the fully qualified file name of test namespaces, classes, and methods for matches.</td>
+</tr>
+<tr>
+<td>Output</td>
+<td>Searches the user-defined error messages that are written to standard output (stdout) or standard error (stderr). The syntax to specify output messages are defined by the unit test framework.</td>
+</tr>
+<tr>
+<td>Outcome</td>
+<td>Searches the Test Explorer category names for matches: Failed Tests, Skipped Tests, Passed Tests.</td>
+</tr>
+</tbody>
+</table>
+<p>Let's take an example. Say I have the following tests in my system (implementations removed for brevity):</p>
+<pre><code>[TestMethod]
+public async Task TestMethodNone()
+
+[TestMethod, TestCategory("Unit")]
+public async Task TestMethodUnit()
+
+[TestMethod, TestCategory("DAL"), TestCategory("Unit")]
+public async Task TestMethodDALUnit()
+
+[TestMethod, TestCategory("DAL"), TestCategory("Unit")]
+public async Task TestMethodDALUnit2()
+
+[TestMethod, TestCategory("DAL"), TestCategory("Integration")]
+public async Task TestMethodADALIntegration()
+</code></pre>
+<p>If I group by trait and don't filter anything, then I'll see the following tests:</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2016/01/TestExplorerGroupedByTrait.png" alt="TestExplorerGroupedByTrait" width="220" height="248" class="alignnone size-full wp-image-1561" /></p>
+<p>Next, I could filter the tests by specifying I only want tests with the Unit trait. The search term would be <code>Trait:"Unit"</code>:</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2016/01/TestExplorerUnitTestsOnly.png" alt="TestExplorerUnitTestsOnly" width="177" height="152" class="alignnone size-full wp-image-1563" /></p>
+<p>I can also filter to only show tests that are both DAL and Unit tests by using the search term <code>Trait:"Unit" Trait:"DAL"</code>:</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2016/01/TestExplorerUnitAndDAL.png" alt="TestExplorerUnitAndDAL" width="182" height="128" class="alignnone size-full wp-image-1564" /></p>
+<p>If I want to exclude tests with a given attribute, I could exclude all DAL tests by using the minus symbol, so my search term would be <code>Trait:"Unit" -Trait:"DAL"</code>:</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2016/01/TestExplorerUnitNotDAL.png" alt="TestExplorerUnitNotDAL" width="176" height="52" class="alignnone size-full wp-image-1565" /></p>
+<p>You can also pair this with other searchable attributes on the tests. So, after a test run, if I want to find all unit tests that failed, I could use the search term <code>Trait:"Unit" Outcome:"Failed"</code>:</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2016/01/TestExplorerFailedUnitTests.png" alt="TestExplorerFailedUnitTests" width="152" height="52" class="alignnone size-full wp-image-1566" /></p>
+<p>As you can see, the grouping and filtering available to you in the Test Explorer window is pretty robust; it just takes a little time to dig into it and learn the syntax. The <a href="https://msdn.microsoft.com/en-us/library/hh270865.aspx">Run unit tests with Test Explorer</a> article on MSDN gives a lot of good information on this topic and is a worthwhile read if you are using this window in your day to day work. Thanks to William Custode for asking a <a href="http://stackoverflow.com/q/34977694/573218">question</a> on StackOverflow that gave me inspiration for this blog post.</p>
+<p><em>Image Credit: <a href="https://www.flickr.com/photos/albertogp123/5843577306">Alberto G.</a> via <a href="https://creativecommons.org/licenses/by/2.0/">Creative Commons</a></em></p>

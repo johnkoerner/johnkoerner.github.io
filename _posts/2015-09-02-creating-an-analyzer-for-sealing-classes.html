@@ -1,0 +1,141 @@
+---
+layout: post
+status: publish
+published: true
+title: Creating an Analyzer For Sealing Classes
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1362
+wordpress_url: https://johnkoerner.com/?p=1362
+date: '2015-09-02 02:01:05 -0400'
+date_gmt: '2015-09-02 02:01:05 -0400'
+categories:
+- C#
+- Code Analysis
+- Roslyn
+tags:
+- C#
+- Code Analysis
+- roslyn
+- vs2015
+- Visual Studio 2015
+---
+<p>I was talking with a co-worker today when the topic of code analyzers came up. He stated that one analyzer he would really like to see is one that warns you if you are not sealing classes that do not explicitly define abstract or virtual methods. This is somewhat of a religious debate among developers. If you don't believe me, just read the comments on Eric Lippert's <a href="http://blogs.msdn.com/b/ericlippert/archive/2004/01/22/61803.aspx">post</a> on the subject. I am not going to debate the validity of the claims on either side, rather I am going to focus on how one would implement an analyzer to see if a class should be sealed if it does not explicitly define functionality to be extended.</p>
+<p>To start, I will register an analyzer to look at all class declarations.</p>
+<pre><code>context.RegisterSyntaxNodeAction((syntaxNodeContext) =&gt;
+{
+} , SyntaxKind.ClassDeclaration);
+</code></pre>
+<p>Next, I will check if the class is static using the <code>Modifiers</code> property. If it is, I won't bother analyzing it:</p>
+<pre><code>var node = syntaxNodeContext.Node as ClassDeclarationSyntax;
+
+// We don't care about sealing static classes
+if (node.Modifiers.Where(x =&gt; x.IsKind(SyntaxKind.StaticKeyword)).Any())
+    return;
+</code></pre>
+<p>We can also rule out any classes that are already sealed by checking the <code>Modifiers</code> for the <code>SealedKeyword</code>:</p>
+<pre><code>// The class is already sealed, no reason to analyze it
+if (node.Modifiers.Where(x =&gt; x.IsKind(SyntaxKind.SealedKeyword)).Any())
+    return;
+</code></pre>
+<p>At this point, we have a non-static, non-sealed class, so we need to check the points that can be extended via inheritance. Based on the MSDN docs for <a href="https://msdn.microsoft.com/en-us/library/sf985hc5.aspx">abstract</a> and <a href="https://msdn.microsoft.com/en-us/library/9fkccyh4.aspx">virtual</a>, we know that we need to check methods, properties, events, and indexers. We can get those from the <code>Members</code> of the class:</p>
+<pre><code>var methods = node.Members.Where(x =&gt; x.IsKind(SyntaxKind.MethodDeclaration));
+var props = node.Members.Where(x =&gt; x.IsKind(SyntaxKind.PropertyDeclaration));
+var events = node.Members.Where(x =&gt; x.IsKind(SyntaxKind.EventDeclaration));
+var indexers = node.Members.Where(x =&gt; x.IsKind(SyntaxKind.IndexerDeclaration));
+</code></pre>
+<p>Next, we just have to loop over those declarations to determine if any of them are abstract or virtual. If any of them are, then we know we don't need to raise a diagnostic:</p>
+<pre><code>foreach (var m in methods)
+{
+    var modifiers = (m as MethodDeclarationSyntax)?.Modifiers.Where(x=&gt;x.IsKind(SyntaxKind.AbstractKeyword) || x.IsKind(SyntaxKind.VirtualKeyword));
+    if (modifiers != null &amp;&amp; modifiers.Any())
+        return;
+}
+
+foreach (var p in props)
+{
+    var modifiers = (p as PropertyDeclarationSyntax)?.Modifiers.Where(x =&gt; x.IsKind(SyntaxKind.AbstractKeyword) || x.IsKind(SyntaxKind.VirtualKeyword));
+    if (modifiers != null &amp;&amp; modifiers.Any())
+        return;
+}
+
+foreach (var e in events)
+{
+    var modifiers = (e as EventDeclarationSyntax)?.Modifiers.Where(x =&gt; x.IsKind(SyntaxKind.AbstractKeyword) || x.IsKind(SyntaxKind.VirtualKeyword));
+    if (modifiers != null &amp;&amp; modifiers.Any())
+        return;
+}
+
+foreach (var i in indexers)
+{
+    var modifiers = (i as IndexerDeclarationSyntax)?.Modifiers.Where(x =&gt; x.IsKind(SyntaxKind.AbstractKeyword) || x.IsKind(SyntaxKind.VirtualKeyword));
+    if (modifiers != null &amp;&amp; modifiers.Any())
+        return;
+}
+</code></pre>
+<p>Finally, if we have gone through all of the possible inheritance points and still have not hit an explicit declaration of intent for inheritance, we can raise our diagnostic:</p>
+<pre><code>// We got here, so there are no abstract or virtual methods/properties/events/indexers
+syntaxNodeContext.ReportDiagnostic(Diagnostic.Create(Rule, node.GetLocation()));
+</code></pre>
+<p>So, our full diagnostic is:</p>
+<pre><code>public override void Initialize(AnalysisContext context)
+{
+    context.RegisterSyntaxNodeAction((syntaxNodeContext) =&gt;
+    {
+        var node = syntaxNodeContext.Node as ClassDeclarationSyntax;
+
+        // We don't care about sealing static classes
+        if (node.Modifiers.Where(x =&gt; x.IsKind(SyntaxKind.StaticKeyword)).Any())
+            return;
+
+        // The class is already sealed, no reason to analyze it
+        if (node.Modifiers.Where(x =&gt; x.IsKind(SyntaxKind.SealedKeyword)).Any())
+            return;
+
+        var methods = node.Members.Where(x =&gt; x.IsKind(SyntaxKind.MethodDeclaration));
+        var props = node.Members.Where(x =&gt; x.IsKind(SyntaxKind.PropertyDeclaration));
+        var events = node.Members.Where(x =&gt; x.IsKind(SyntaxKind.EventDeclaration));
+        var indexers = node.Members.Where(x =&gt; x.IsKind(SyntaxKind.IndexerDeclaration));
+
+        foreach (var m in methods)
+        {
+            var modifiers = (m as MethodDeclarationSyntax)?.Modifiers.Where(x=&gt;x.IsKind(SyntaxKind.AbstractKeyword) || x.IsKind(SyntaxKind.VirtualKeyword));
+            if (modifiers != null &amp;&amp; modifiers.Any())
+                return;
+        }
+
+        foreach (var p in props)
+        {
+            var modifiers = (p as PropertyDeclarationSyntax)?.Modifiers.Where(x =&gt; x.IsKind(SyntaxKind.AbstractKeyword) || x.IsKind(SyntaxKind.VirtualKeyword));
+            if (modifiers != null &amp;&amp; modifiers.Any())
+                return;
+        }
+
+        foreach (var e in events)
+        {
+            var modifiers = (e as EventDeclarationSyntax)?.Modifiers.Where(x =&gt; x.IsKind(SyntaxKind.AbstractKeyword) || x.IsKind(SyntaxKind.VirtualKeyword));
+            if (modifiers != null &amp;&amp; modifiers.Any())
+                return;
+        }
+
+        foreach (var i in indexers)
+        {
+            var modifiers = (i as IndexerDeclarationSyntax)?.Modifiers.Where(x =&gt; x.IsKind(SyntaxKind.AbstractKeyword) || x.IsKind(SyntaxKind.VirtualKeyword));
+            if (modifiers != null &amp;&amp; modifiers.Any())
+                return;
+        }
+
+        // We got here, so there are no abstract or virtual methods/properties/events/indexers
+        syntaxNodeContext.ReportDiagnostic(Diagnostic.Create(Rule, node.GetLocation()));
+
+    } , SyntaxKind.ClassDeclaration);
+}
+</code></pre>
+<p>I have also posted the <a href="https://github.com/johnkoerner/AnalyzerSamples/blob/master/AnalyzerSamples/AnalyzerSamples/Usage/SealItUp.cs">full diagnostic</a> in my <a href="https://github.com/johnkoerner/AnalyzerSamples">analyzer samples project</a> on GitHub.</p>
+<p>Despite what side of the argument you are for in this debate, you can see how to create an analyzer that would allow catch classes that are not intended for inheritance and ensure they are not inheritable. It is up to you whether you would include this analyzer in your list of enabled analyzers.</p>
+<p><em>Image Credit: <a href="https://flic.kr/p/cdAF5s">Northwest Power and Conservation Council</a> via <a href="https://creativecommons.org/licenses/by/2.0/">Creative Commons</a></em></p>

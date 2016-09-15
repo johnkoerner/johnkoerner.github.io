@@ -1,0 +1,117 @@
+---
+layout: post
+status: publish
+published: true
+title: Renaming Symbols in Your CodeFix
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1268
+wordpress_url: https://johnkoerner.com/?p=1268
+date: '2015-08-06 02:54:18 -0400'
+date_gmt: '2015-08-06 02:54:18 -0400'
+categories:
+- C#
+- Code Analysis
+- Roslyn
+tags:
+- C#
+- Code Analysis
+- roslyn
+- Visual Studio 2015
+- Visual Studio
+- Code Fix
+---
+<p>One of the most basic actions a Visual Studio code fix can perform is renaming of a symbol. To demonstrate how to do this, I will walk through how the StyleCop Analyzer <a href="http://www.stylecop.com/docs/SA1309.html">SA1309 (Field Names Must Not Begin With Underscore)</a> performs its fix.</p>
+<p>As the name implies, this diagnostic is raised any time there is a field that begins with an underscore. So, for example, the following code would raise a diagnostic, because of the field name <code>_bar</code>:</p>
+<pre><code>public class Foo
+{
+    public string _bar = ""baz"";
+}
+</code></pre>
+<p>In order to fix this diagnostic, we will loop over all of the Diagnostics sent in the <code>RegisterCodeFixesAsync</code> method and compute a new name for the token.</p>
+<pre><code>public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+{
+    var document = context.Document;
+    var root = await document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+
+    foreach (var diagnostic in context.Diagnostics)
+    {
+        if (!diagnostic.Id.Equals(SA1309FieldNamesMustNotBeginWithUnderscore.DiagnosticId))
+        {
+            continue;
+        }
+
+        var token = root.FindToken(diagnostic.Location.SourceSpan.Start);
+        if (token.IsMissing)
+        {
+            continue;
+        }
+
+        if (!string.IsNullOrEmpty(token.ValueText))
+        {
+            var newName = token.ValueText.TrimStart(new[] { '_' });
+
+            if (string.IsNullOrEmpty(newName))
+            {
+                // The variable consisted of only underscores. In this case we cannot
+                // generate a valid variable name and thus will not offer a code fix.
+                continue;
+            }
+
+            context.RegisterCodeFix(CodeAction.Create(string.Format(NamingResources.SA1309CodeFix, newName), 
+                 cancellationToken =&gt; RenameHelper.RenameSymbolAsync(document, root, token, newName, cancellationToken), 
+                 equivalenceKey: nameof(SA1309CodeFixProvider)), diagnostic);
+        }
+    }
+}
+</code></pre>
+<p>The most important bits here are the part where we calculate the new name and the part where we register the code fix. So in the computation of the new name, we simply remove the underscores from the start of the name. The only odd case we need to account for is if the variable name is only underscores.</p>
+<pre><code>var newName = token.ValueText.TrimStart(new[] { '_' });
+
+if (string.IsNullOrEmpty(newName))
+{
+    // The variable consisted of only underscores. In this case we cannot
+    // generate a valid variable name and thus will not offer a code fix.
+    continue;
+}
+</code></pre>
+<p>The other interesting code in here is the <code>RenameHelper.RenameSymbolAsnc</code> call, which is what does the actual renaming of the symbol. This code can be found in the <a href="https://github.com/DotNetAnalyzers/StyleCopAnalyzers/blob/master/StyleCop.Analyzers/StyleCop.Analyzers/Helpers/RenameHelper.cs">RenameHelpers</a> class in the <a href="https://github.com/DotNetAnalyzers/StyleCopAnalyzers">StyleCop Analyzers</a> project on GitHub. Let's dig into that code a bit.</p>
+<pre><code>public static async Task&lt;Solution&gt; RenameSymbolAsync(Document document, SyntaxNode root, SyntaxToken declarationToken, string newName, CancellationToken cancellationToken)
+{
+    var annotatedRoot = root.ReplaceToken(declarationToken, declarationToken.WithAdditionalAnnotations(RenameAnnotation.Create()));
+    var annotatedSolution = document.Project.Solution.WithDocumentSyntaxRoot(document.Id, annotatedRoot);
+    var annotatedDocument = annotatedSolution.GetDocument(document.Id);
+
+    annotatedRoot = await annotatedDocument.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+    var annotatedToken = annotatedRoot.FindToken(declarationToken.SpanStart);
+
+    var semanticModel = await annotatedDocument.GetSemanticModelAsync(cancellationToken).ConfigureAwait(false);
+    var symbol = semanticModel?.GetDeclaredSymbol(annotatedToken.Parent, cancellationToken);
+
+    var newSolution = await Renamer.RenameSymbolAsync(annotatedSolution, symbol, newName, null, cancellationToken).ConfigureAwait(false);
+    return newSolution;
+}
+</code></pre>
+<p>Let's break this method down to see what it is doing. Let's start with all of the annotation code.</p>
+<pre><code>var annotatedRoot = root.ReplaceToken(declarationToken, declarationToken.WithAdditionalAnnotations(RenameAnnotation.Create()));
+var annotatedSolution = document.Project.Solution.WithDocumentSyntaxRoot(document.Id, annotatedRoot);
+var annotatedDocument = annotatedSolution.GetDocument(document.Id);
+
+annotatedRoot = await annotatedDocument.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+var annotatedToken = annotatedRoot.FindToken(declarationToken.SpanStart);
+</code></pre>
+<p>Essentially what this code is doing is getting new objects (remember SyntaxNodes, Documents, Solutions, etc... are immutable) with annotations to indicate that we need to do a rename. This is akin to starting a rename within Visual Studio and it highlighting all of the instances of the symbol you are renaming. Next, we need to get the semantic model and the symbol from the annotated objects, so we can use the symbol in the rename helper.</p>
+<pre><code>var semanticModel = await annotatedDocument.GetSemanticModelAsync(cancellationToken).ConfigureAwait(false);
+var symbol = semanticModel?.GetDeclaredSymbol(annotatedToken.Parent, cancellationToken);
+</code></pre>
+<p>Finally, Roslyn provides a <a href="http://source.roslyn.codeplex.com/#Microsoft.CodeAnalysis.Workspaces/Rename/Renamer.cs,122757488c14f307,references">RenameSymbolAsync</a> that will perform the rename given the annotated solution, symbol, and new name.</p>
+<pre><code>var newSolution = await Renamer.RenameSymbolAsync(annotatedSolution, symbol, newName, null, cancellationToken).ConfigureAwait(false);
+return newSolution;
+</code></pre>
+<p>And there you have it, the code to do a rename of a symbol inside your code fix. As you can see, the <code>RenameHelpers</code> and <code>RenameSymbolAsync</code> helper methods wrap a lot of the hard work that needs to be done when renaming a symbol and you can focus on figuring out the name for your new symbols.</p>
+<p><em>Image Credit: <a href="https://flic.kr/p/57D5tY">Tech Cocktail</a> via <a href="https://creativecommons.org/licenses/by-sa/2.0/">Creative Commons</a></em></p>

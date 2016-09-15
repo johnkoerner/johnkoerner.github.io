@@ -1,0 +1,153 @@
+---
+layout: post
+status: publish
+published: true
+title: 'Creating a PowerShell Navigation Provider: #3 Nested GetChildItems() Support'
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 919
+wordpress_url: http://johnkoerner.com/?p=919
+date: '2014-10-01 02:47:31 -0400'
+date_gmt: '2014-10-01 02:47:31 -0400'
+categories:
+- C#
+- PowerShell
+tags: []
+---
+<p>In the <a href="http://johnkoerner.com/csharp/creating-a-powershell-navigation-provider-2-basic-getchilditems-support/">second</a> post in this series, we covered the basics of acquiring children and outputting them to PowerShell. Next we are going to add some nested navigation and only allow users to navigate into tags that we know exist.</p>
+<p>First some administrative tasks. I decided to remove my custom C# Stackoverflow API that was very minimal and use something more robust. I went with <a href="https://github.com/emmettnicholas/StacMan">StacMan</a> and added it to the project using the nuget package. I then modified the existing code and views to work as before. I also changed the drive name to SO, to make it easier to type and to make it more relevant. With that out of the way, we can now forge ahead.</p>
+<p>The final working code for this post can be found the <a href="https://github.com/johnkoerner/PowershellProvider/tree/NestedNavigation">NestedNavigation</a> tag in the <a href="https://github.com/johnkoerner/PowershellProvider">github repo</a>.</p>
+<p>To start, I modified the tag acquisition to keep the tags around, so I will only load them once and so I can reuse this code where necessary:</p>
+<pre><code>private static StacManResponse&lt;Tag&gt; tags;
+private void LoadTags(bool forceReload=false)
+{
+    if (tags == null || forceReload)
+    {
+        var stackOverflow = new StacManClient();
+        tags = stackOverflow.Tags.GetAll("stackoverflow.com").Result;
+    }
+}
+</code></pre>
+<p>Next, in my <code>IsItemContainer</code>, instead of blindly returning <code>true</code>, I now check to see if the path sent to us is blank (i.e. at the root) or if the path is a tag in our cache. This allows us to navigate into a valid state:</p>
+<pre><code>protected override bool IsItemContainer(string path)
+{
+    // The path is empty, so we are at the root.  The root is always valid for us.
+    if (String.IsNullOrEmpty(path))
+        return true;
+
+    LoadTags();
+
+    if (tags.Data == null)
+        return false;
+
+    if (tags.Data.Items == null)
+        return false;
+
+    var itemFromTag = from tag in tags.Data.Items
+        where tag.Name.Equals(path, StringComparison.CurrentCultureIgnoreCase)
+        select tag;
+
+    return itemFromTag.Any();   
+}
+</code></pre>
+<p>At this point, if you ran the project and started navigating around, you would be able to navigate into first level folders that were valid tags that came back from the API.</p>
+<p>Now that I have that working, I am going to modify the <code>GetChildItems</code> call to return questions for the tag folder you are in. To do this, I am going to simply check the path that is sent to the call and if it is non-empty, then query the questions API:</p>
+<pre><code>protected override void GetChildItems(string path, bool recurse)
+{
+    if (string.IsNullOrEmpty(path))
+    {
+        // Write the tags
+        LoadTags();
+
+        foreach (var tag in tags.Data.Items)
+        {
+            WriteItemObject(tag, tag.Name, false);
+        }
+    }
+    else
+    {
+        // Write the questions for this tag
+        var stackOverflow = new StacManClient();
+        var questions = stackOverflow.Questions.GetAll("stackoverflow.com", tagged:path);
+
+        foreach (var q in questions.Result.Data.Items)
+        {
+            WriteItemObject(q, q.Title, false);
+        }
+    }
+}
+</code></pre>
+<p>At this point questions are returned, but again the output is hideous. Similarly what we did for tags in the last post, we will do for questions. We are going to add a custom view:</p>
+<pre><code>&lt;View&gt;
+  &lt;Name&gt;QuestionView&lt;/Name&gt;
+  &lt;ViewSelectedBy&gt;
+    &lt;TypeName&gt;StackExchange.StacMan.Question&lt;/TypeName&gt;
+  &lt;/ViewSelectedBy&gt;
+  &lt;TableControl&gt;
+    &lt;TableHeaders&gt;
+      &lt;TableColumnHeader&gt;
+        &lt;Label&gt;Title&lt;/Label&gt;
+        &lt;Width&gt;70&lt;/Width&gt;
+        &lt;Alignment&gt;left&lt;/Alignment&gt;
+      &lt;/TableColumnHeader&gt;
+      &lt;TableColumnHeader&gt;
+        &lt;Label&gt;Creator&lt;/Label&gt;
+        &lt;Width&gt;20&lt;/Width&gt;
+        &lt;Alignment&gt;left&lt;/Alignment&gt;
+      &lt;/TableColumnHeader&gt;
+      &lt;TableColumnHeader&gt;
+        &lt;Label&gt;Reputation&lt;/Label&gt;
+        &lt;Width&gt;10&lt;/Width&gt;
+        &lt;Alignment&gt;Right&lt;/Alignment&gt;
+      &lt;/TableColumnHeader&gt;
+    &lt;/TableHeaders&gt;
+    &lt;TableRowEntries&gt;
+      &lt;TableRowEntry&gt;
+        &lt;TableColumnItems&gt;
+          &lt;TableColumnItem&gt;
+            &lt;PropertyName&gt;Title&lt;/PropertyName&gt;
+          &lt;/TableColumnItem&gt;
+          &lt;TableColumnItem&gt;
+            &lt;ScriptBlock&gt;$_.Owner.DisplayName&lt;/ScriptBlock&gt;
+          &lt;/TableColumnItem&gt;
+          &lt;TableColumnItem&gt;
+            &lt;ScriptBlock&gt;$_.Owner.Reputation&lt;/ScriptBlock&gt;
+          &lt;/TableColumnItem&gt;
+        &lt;/TableColumnItems&gt;
+      &lt;/TableRowEntry&gt;
+    &lt;/TableRowEntries&gt;
+  &lt;/TableControl&gt;
+&lt;/View&gt;
+</code></pre>
+<p>One interesting thing to call out in this view is that we are using the <a href="http://msdn.microsoft.com/en-us/library/gg580979%28v=vs.85%29.aspx">ScriptBlock</a> element to access nested properties (Owner Name and Reputation) on the question object. So now, if you <code>dir</code> your directory, you will see this:</p>
+<pre><code>Title                                         Creator              Reputation
+-----                                         -------              ----------
+C# Clearing a Table                           user3594691                   1
+To list and without tolist                    myfinite                     27
+EntitySpaces/C#: How to use a subquery in ... brad                         11
+SQL query search for all the data by month... user3337393                   1
+Unity control object via socket Udp c#        iboy15                        6
+multicolumn combo box in asp.net              nomi ikon                     6
+C# How can I start PhantomJS + Selenium wi... Tiago Castro                  1
+Override Json Serialization RavenDB           Shea                        101
+How to get &amp;quot;Windows Phone Pivot Page&amp;... n179911                    3017
+How to write binary data to serial port in C# Stefan Vogel                  1
+Can&amp;#39;t get the last row of excel when u... Wen Ling Lo                   1
+Position Window before created using shell... Mark Robbins               1113
+</code></pre>
+<p>Since we are in PowerShell, we get a lot of querying functionality for free, so you can try things like:</p>
+<pre><code>#questions from people with rep over 100
+dir so:\c# | where {$_.Owner.Reputation -gt 100}
+
+#questions with an answer
+dir so:\xml | where {$_.AnswerCount -gt 0}
+
+#questions that have a positive score
+dir | where {$_.Score -gt 0}    
+</code></pre>
+<p>As you can see combining PowerShell semantics with data from an API can be an interesting way for your users to access your data. In our <a href="http://johnkoerner.com/csharp/creating-a-powershell-navigation-provider-4-tab-completion/">next post</a>, we will look at tab completion, so we can behave similarly to other drives within a PowerShell environment.</p>

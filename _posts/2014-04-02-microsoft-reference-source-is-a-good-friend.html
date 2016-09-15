@@ -1,0 +1,29 @@
+---
+layout: post
+status: publish
+published: true
+title: Microsoft Reference Source is a Good Friend
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 864
+wordpress_url: http://johnkoerner.com/?p=864
+date: '2014-04-02 01:32:43 -0400'
+date_gmt: '2014-04-02 01:32:43 -0400'
+categories:
+- C#
+tags: []
+---
+<p>With recent versions of .Net, Microsoft has provided reference source to allow you to navigate and debug issues with the .Net framework. The <a href="http://referencesource.microsoft.com/">reference source website</a> is a great tool to have in your back pocket when researching how something in the .Net framework works. You can download a full solution (minus some resource files) for use in Visual Studio or you can link directly to a <a href="http://referencesource.microsoft.com/#System.AddIn/System/Addin/Hosting/AddInServer.cs#55">line of code</a> when sending emails or instant messages to colleagues.</p>
+<p>Recently I was working with the <a href="http://msdn.microsoft.com/en-us/library/bb384200%28v=vs.110%29.aspx">Managed AddIn Framework</a>, and I was trying to determine how to load settings for an AddIn. I did some reading and really didn't find much on the subject. I tried creating a <code>.config</code> file for the AddIn and magically it was able to load the settings from there. I don't like magic in my code, so I wanted to know how the settings were being loaded. I downloaded the reference source and was able to dig into the <a href="http://referencesource.microsoft.com/#System.AddIn/System/Addin/Hosting/AddInActivator.cs">AddInActivator</a> class and find the calls into the <a href="http://referencesource.microsoft.com/#System.AddIn/System/Addin/Hosting/AddInServer.cs#47">AddInServer</a>. Inside that code, I found that they explicitly load the configuration file based on the AddIn assmebly name:</p>
+<pre><code>AppDomain domain;
+AppDomainSetup setup = new AppDomainSetup();
+setup.ApplicationBase = Path.GetDirectoryName(token._addin.Location);
+setup.ConfigurationFile = token._addin.Location + ".config";
+</code></pre>
+<p>I then took this information and was able to build up a nice email to my colleagues with links directly to the lines of code that we needed to understand to know how the MAF framework loaded configuration files.</p>
+<p>I encourage every .Net developer to get a copy of the reference source on your machine and leverage it when you need to get a better understanding of how the .Net framework works.</p>

@@ -1,0 +1,94 @@
+---
+layout: post
+status: publish
+published: true
+title: Why Does This Implicit Conversion Fail?
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 989
+wordpress_url: http://johnkoerner.com/?p=989
+date: '2014-12-24 14:04:47 -0500'
+date_gmt: '2014-12-24 14:04:47 -0500'
+categories:
+- C#
+tags: []
+---
+<p>There was a recent <a href="http://stackoverflow.com/q/27612428/573218">question</a> on StackOverflow that piqued my interest and was a rather interesting problem dealing with some odd behavior someone observed with implicit operators.</p>
+<p>Consider the following wrapper class:</p>
+<pre><code>sealed class Wrapper&lt;T&gt; : IDisposable
+{
+    public T Child { get; private set; }
+    public Wrapper(T child) { Child = child; }
+    public static implicit operator Wrapper&lt;T&gt;(T child) { return new Wrapper&lt;T&gt;(child); }
+
+    public static implicit operator T(Wrapper&lt;T&gt; host) { return host.Child; }
+
+    public void Dispose()
+    {
+        try { Marshal.ReleaseComObject(Child); }
+        catch { }
+    }
+}
+</code></pre>
+<p>And the consuming code:</p>
+<pre><code>// DON'T DO THIS
+using (Wrapper&lt;Excel.Application&gt; _xlApp = new Excel.Application()) 
+{
+    Excel.Application xlApp = _xlApp; 
+}
+</code></pre>
+<p>First of all, <a href="http://stackoverflow.com/a/25135685/573218">don't do this</a> to try and free up COM objects. The Garbage Collector will take care of it for you and you should just let it do its job.</p>
+<p>Regardless of whether you should do it or not, the interesting part of the question is, why doesn't this compile. It gives the following errors:</p>
+<ul>
+<li>Cannot implicitly convert type 'Microsoft.Office.Interop.Excel.Application' to 'CSharpWinForms.Wrapper&lt;Microsoft.Office.Interop.Excel.Application>' </li>
+<li>Cannot implicitly convert type 'CSharpWinForms.Wrapper&lt;Microsoft.Office.Interop.Excel.Application>' to 'Microsoft.Office.Interop.Excel.Application' </li>
+</ul>
+<p>You would expect that the implicit operators would allow the conversions between the Wrapper and the generic parameter type without issue. The key to the issue here is knowing that <code>Excel.Application</code> is an interface and there are different rules for conversions with interfaces.</p>
+<p>Let's browse out to our C# spec (<code>"C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC#\Specifications\1033\CSharp Language Specification.docx"</code>) and open it up to <code>10.10.3</code>.</p>
+<p>The two parts of the spec that are applicable here:</p>
+<blockquote>
+<ul>
+<li>
+<p>S0 and T0 are different types.</p>
+</li>
+<li>
+<p>Either S0 or T0 is the class or struct type in which the operator declaration takes place.</p>
+</li>
+<li>
+<p>Neither S0 nor T0 is an interface-type.</p>
+</li>
+<li>
+<p>Excluding user-defined conversions, a conversion does not exist from S to T or from T to S.</p>
+</li>
+</ul>
+</blockquote>
+<p>and</p>
+<blockquote>
+<ul>
+<li>
+<p>If a pre-defined implicit conversion (§6.1) exists from type S to type T, all user-defined conversions (implicit or explicit) from S to T are ignored.</p>
+</li>
+<li>
+<p>If a pre-defined explicit conversion (§6.2) exists from type S to type T, any user-defined explicit conversions from S to T are ignored. Furthermore:</p>
+<ul>
+<li>If T is an interface type, user-defined implicit conversions from S to T are ignored.</li>
+<li>Otherwise, user-defined implicit conversions from S to T are still considered.</li>
+</ul>
+</li>
+</ul>
+</blockquote>
+<p>This second section was added to the spec after it's initial release and the Microsoft development team obviously spent time thinking about this, as explained in this Eric Lippert <a href="http://stackoverflow.com/a/9231325/573218">answer</a>.</p>
+<p>Specifically he calls out the problem with interface based implicit conversion:</p>
+<blockquote>
+<p>Why? Because one has the reasonable expectation that when one converts a value to an interface, that you are testing whether the object in question implements the interface, not asking for an entirely different object that implements the interface. In COM terms, converting to an interface is QueryInterface -- "do you implement this interface?" -- and not QueryService -- "can you find me someone who implements this interface?"</p>
+</blockquote>
+<p>Finally he states:</p>
+<blockquote>
+<p>However, generics muddy the waters considerably, the spec wording is not very clear, and the C# compiler contains a number of bugs in its implementation. Neither the spec nor the implementation are correct given certain edge cases involving generics, and that presents a difficult problem for me, the implementer. I am actually working with Mads today on clarifying this section of the spec, as I am implementing it in Roslyn next week.</p>
+</blockquote>
+<p>So, in conclusion, the reason the conversion doesn't work is because that is how the language is specced and if you consider Eric's answer as to why, it does make a lot of sense.</p>

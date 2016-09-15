@@ -1,0 +1,135 @@
+---
+layout: post
+status: publish
+published: true
+title: 'Creating a PowerShell Navigation Provider: #2 Basic GetChildItems() Support'
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 906
+wordpress_url: http://johnkoerner.com/?p=906
+date: '2014-07-09 01:03:47 -0400'
+date_gmt: '2014-07-09 01:03:47 -0400'
+categories:
+- C#
+- PowerShell
+tags: []
+---
+<p>As you saw in the <a href="http://johnkoerner.com/csharp/creating-a-powershell-navigation-provider-1-the-basics/">first post</a> in this <a href="http://johnkoerner.com/csharp/creating-a-powershell-navigation-provider-introduction/">series</a>, getting a PowerShell provider up and running is pretty easy. Next we are going to add some basic <code>GetChildItems()</code> support and provide a nice experience to your users.</p>
+<p>A good starting point for this article is the <a href="https://github.com/johnkoerner/PowershellProvider/tree/GetStackOverflowTags">GetStackOverflowTags</a> tag in the <a href="https://github.com/johnkoerner/PowershellProvider">GitHub repo</a> for this project. I have added a basic StackOverflow API at this point that allows me to get a list of tags from StackOverflow ordered by the most popular tags.</p>
+<p>After adding the API, I simply updated the <code>GetChildItems()</code> call to consume the API and return the object to the PowerShell window.</p>
+<pre><code>protected override void GetChildItems(string path, bool recurse)
+{
+    var stackOverflow = new StackOverflowAPI.StackOverflow();
+    var tags = stackOverflow.GetTags().Result;
+
+    foreach (var tag in tags)
+    {
+        WriteItemObject(tag, tag.name,true);
+    }
+}
+</code></pre>
+<p>Now, anytime you call <code>dir</code>, you get output that looks like this:</p>
+<pre><code>PSPath            : PowerShellProvider\MyPowerShellProvider::java
+PSParentPath      : 
+PSChildName       : java
+PSDrive           : MyDrive
+PSProvider        : PowerShellProvider\MyPowerShellProvider
+PSIsContainer     : True
+has_synonyms      : True
+is_moderator_only : False
+is_required       : False
+count             : 669099
+name              : java
+</code></pre>
+<p>Not very user friendly. You could use various PowerShell constructs to format the output like you want, for example, I could do <code>dir | Format-Table -Property Name,Count</code> to get the output:</p>
+<pre><code>name                                                                  count
+----                                                                  -----
+java                                                                  669099
+c#                                                                    663666
+javascript                                                            647161
+php                                                                   603881
+...
+</code></pre>
+<p>Instead of forcing the user to type that every time, we can modify our project to use a PowerShell <a href="http://msdn.microsoft.com/en-us/library/dd878337%28v=vs.85%29.aspx">manifest</a> and a <a href="http://msdn.microsoft.com/en-us/library/dd878272%28v=vs.85%29.aspx">custom formatting file</a> to get our desired output on a <code>dir</code> command. Create a new file called <code>MyPowerShellProvider.psd1</code> and set its build action to <code>Content</code> and <code>CopyToOutputDirectory</code> to <code>Copy if newer</code>.</p>
+<p>Copy the contents of the sample <a href="http://msdn.microsoft.com/en-us/library/dd878337%28v=vs.85%29.aspx">manifest</a> file and update the following lines:</p>
+<pre><code># Script module or binary module file associated with this manifest
+RootModule = 'PowerShellProvider.dll'
+
+# Version number of this module.
+ModuleVersion = '1.0'
+
+# ID used to uniquely identify this module
+GUID = 'AE0DA9B1-93DF-4959-9C97-BAA45D5F8EE0'
+
+# Author of this module
+Author = 'John Koerner'
+
+# Company or vendor of this module
+CompanyName = ''
+
+# Copyright statement for this module
+Copyright = 'See the license file for this repo'
+</code></pre>
+<p>Update your <code>InstallProvider.ps1</code> file to point to the new psd1 file:</p>
+<pre><code>Import-Module .\MyPowerShellProvider.psd1
+</code></pre>
+<p>At this point, your provider should still work as before, but now it is loading the information based on the <code>.psd1</code> file. Next we will create a custom formatting file. I am simply going to modify the table output to use the Name and Count fields. Create a new file named <code>MyViewDefinition.ps1xml</code> and set the <code>Copy to Output Directory</code> to <code>Copy if newer</code>. For the contents of this file, use the following:</p>
+<pre><code>&lt;Configuration&gt;
+  &lt;ViewDefinitions&gt;
+    &lt;View&gt;
+      &lt;Name&gt;MyView&lt;/Name&gt;
+      &lt;ViewSelectedBy&gt;
+        &lt;TypeName&gt;StackOverflowAPI.Tag&lt;/TypeName&gt;
+      &lt;/ViewSelectedBy&gt;
+      &lt;TableControl&gt;
+        &lt;TableHeaders&gt;
+          &lt;TableColumnHeader&gt;
+            &lt;Label&gt;Name&lt;/Label&gt;
+            &lt;Width&gt;25&lt;/Width&gt;
+            &lt;Alignment&gt;left&lt;/Alignment&gt;
+          &lt;/TableColumnHeader&gt;
+          &lt;TableColumnHeader&gt;
+            &lt;Label&gt;Count&lt;/Label&gt;
+            &lt;Width&gt;10&lt;/Width&gt;
+            &lt;Alignment&gt;left&lt;/Alignment&gt;
+          &lt;/TableColumnHeader&gt;
+        &lt;/TableHeaders&gt;
+        &lt;TableRowEntries&gt;
+          &lt;TableRowEntry&gt;
+            &lt;TableColumnItems&gt;
+              &lt;TableColumnItem&gt;
+                &lt;PropertyName&gt;Name&lt;/PropertyName&gt;
+              &lt;/TableColumnItem&gt;
+              &lt;TableColumnItem&gt;
+                &lt;PropertyName&gt;Count&lt;/PropertyName&gt;
+              &lt;/TableColumnItem&gt;
+            &lt;/TableColumnItems&gt;
+          &lt;/TableRowEntry&gt;
+        &lt;/TableRowEntries&gt;
+      &lt;/TableControl&gt;
+    &lt;/View&gt;
+  &lt;/ViewDefinitions&gt;
+&lt;/Configuration&gt;
+</code></pre>
+<p>Some of the important bits here are that we set the <code>TypeName</code> node in the <code>ViewSelectedBy</code> node to our type that we are using. This can give us a lot of flexibility if we want different formatting for different types of data. We then set table headers to our desired header information and then one <code>TableColumnItem</code> for each header we defined, telling it from which property it can obtain the value.</p>
+<p>Finally we can update the <code>.psd1</code> file to leverage this formatting, by updating the <code>FormatsToProcess</code> line to include our <code>ps1xml</code> file.</p>
+<pre><code>FormatsToProcess = @("MyViewDefinition.ps1xml")
+</code></pre>
+<p>Now when you run <code>dir</code> on <code>MyDrive:</code> you will get the following output:</p>
+<pre><code>Name                      Count
+----                      -----
+java                      671397
+c#                        665365
+javascript                649489
+php                       606076
+android                   534244
+jquery                    503075
+python                    318616
+...
+</code></pre>
+<p>At this point you have a drive that can show a single level of depth and the <code>dir</code> output doesn't look half bad. In the <a href="http://johnkoerner.com/csharp/creating-a-powershell-navigation-provider-3-nested-getchilditems-support/">next article</a>, we will really dig into navigation and work on navigating in and out of folders and have valid dir contents at every depth.</p>

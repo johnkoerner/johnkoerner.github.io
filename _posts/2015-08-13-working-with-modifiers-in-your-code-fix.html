@@ -1,0 +1,96 @@
+---
+layout: post
+status: publish
+published: true
+title: Working with Modifiers in Your Code Fix
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1297
+wordpress_url: https://johnkoerner.com/?p=1297
+date: '2015-08-13 04:26:47 -0400'
+date_gmt: '2015-08-13 04:26:47 -0400'
+categories:
+- C#
+- Code Analysis
+- Roslyn
+tags:
+- C#
+- Code Analysis
+- roslyn
+- Visual Studio 2015
+---
+<p>Recently there was a question on <a href="http://stackoverflow.com/q/31931091/573218">StackOverflow</a> asking how to remove <code>params</code> from a method parameter list. There is a lot of extra information in that question, so I thought I would distill it down and explain some things in more detail.</p>
+<p>To start, we need an analyzer that raises a diagnostic on the <code>parmas</code> keyword. We'll start by just raising it on every <code>paramas</code> keyword, as we really care more about the code fix in this case.</p>
+<pre><code>public override void Initialize(AnalysisContext context)
+{
+    context.RegisterSyntaxNodeAction((syntaxContext) =&gt;
+    {
+        var node = syntaxContext.Node as ParameterListSyntax;
+        if (node.Parameters.LastOrDefault().Modifiers.Any(x =&gt; x.IsKind(SyntaxKind.ParamsKeyword)))
+        {
+            syntaxContext.ReportDiagnostic(Diagnostic.Create(Rule, node.GetLocation()));
+        }
+    }, SyntaxKind.ParameterList);
+}
+</code></pre>
+<p>In this case, we are registering for all <code>ParameterLists</code> and checking if that last keyword has a <code>ParamsKeyword</code> modifier. The <code>params</code> keyword is considered a modifier, similar to <code>public</code>, <code>private</code>, <code>static</code>, etc ...</p>
+<p>Now that we have an analyzer that can detect params, we want to remove them. To start, we will simply register our code fix:</p>
+<pre><code>var diagnostic = context.Diagnostics.First();
+context.RegisterCodeFix(CodeAction.Create("Remove 'params' modifier", async token =&gt; {
+</code></pre>
+<p>Next, we are going to get the document and syntax root and use the root to find the parameters list that raised the diagnostic.</p>
+<pre><code>var document = context.Document;
+var root = await document.GetSyntaxRootAsync(token);
+
+var allParmeters = root.FindNode(diagnostic.Location.SourceSpan, false) as ParameterListSyntax;
+</code></pre>
+<p>Since we are looking for <code>params</code> and they have to be the last parameter, we are just looking at the last parameter in the parameter list.</p>
+<pre><code>var lastParameter = allParmeters.Parameters.LastOrDefault();
+</code></pre>
+<p>Now that we have the correct parameter, we are going to get all modifiers off the paramter except the params keyword and place them in a new <code>SyntaxTokenList</code> of modifiers.</p>
+<pre><code>// Keep all modifiers except the params
+var newModifiers = lastParameter.Modifiers.Where(m =&gt; !m.IsKind(SyntaxKind.ParamsKeyword));
+var syntaxModifiers = SyntaxTokenList.Create(new SyntaxToken());
+syntaxModifiers.AddRange(newModifiers);
+</code></pre>
+<p>Since all SyntaxNodes are immutable, we need to get a new SytnaxNode with the correct modifiers. The Roslyn API provides a <code>WithModifiers</code> extension method that does just that for us.</p>
+<pre><code>var updatedParameterNode = lastParameter.WithModifiers(syntaxModifiers);
+</code></pre>
+<p>Finally we will replace the old node with the new node in the Syntax tree and return that.</p>
+<pre><code>var newDoc = document.WithSyntaxRoot(root.ReplaceNode(lastParameter, updatedParameterNode));
+return newDoc;
+</code></pre>
+<p>In the end, the full code fix looks like this:</p>
+<pre><code>public async override Task RegisterCodeFixesAsync(CodeFixContext context)
+{
+
+    var diagnostic = context.Diagnostics.First();
+    context.RegisterCodeFix(CodeAction.Create("Remove 'params' modifier", async token =&gt;
+    {
+
+        var document = context.Document;
+        var root = await document.GetSyntaxRootAsync(token);
+
+        var allParmeters = root.FindNode(diagnostic.Location.SourceSpan, false) as ParameterListSyntax;
+
+        var lastParameter = allParmeters.Parameters.LastOrDefault();
+
+        // Keep all modifiers except the params
+        var newModifiers = lastParameter.Modifiers.Where(m =&gt; !m.IsKind(SyntaxKind.ParamsKeyword));
+        var syntaxModifiers = SyntaxTokenList.Create(new SyntaxToken());
+        syntaxModifiers.AddRange(newModifiers);
+
+        var updatedParameterNode = lastParameter.WithModifiers(syntaxModifiers);
+
+        var newDoc = document.WithSyntaxRoot(root.ReplaceNode(lastParameter, updatedParameterNode));
+        return newDoc;
+    }, "KEY"), diagnostic);
+}
+</code></pre>
+<p>And there you have it. A simple code fix that removes the <code>params</code> modifier from a parameter list. As you can see, this code is pretty straightforward, and the concepts can be easily extended to remove any modifiers that are present on a <code>SyntaxNode</code>.</p>
+<p><em>Image Credit: <a href="https://flic.kr/p/9fGCEV">Kurt Bauschardt</a> via <a href="https://creativecommons.org/licenses/by-sa/2.0/">Creative Commons</a></em></p>

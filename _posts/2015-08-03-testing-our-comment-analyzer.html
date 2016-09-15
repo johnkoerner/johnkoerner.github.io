@@ -1,0 +1,134 @@
+---
+layout: post
+status: publish
+published: true
+title: Testing our Comment Analyzer
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1257
+wordpress_url: https://johnkoerner.com/?p=1257
+date: '2015-08-03 02:59:59 -0400'
+date_gmt: '2015-08-03 02:59:59 -0400'
+categories:
+- C#
+- Code Analysis
+- Roslyn
+tags:
+- C#
+- Code Analysis
+- Unit Tests
+---
+<p>In previous posts we covered the basics of <a href="https://johnkoerner.com/csharp/navigating-trivia-in-your-diagnostic/">creating a comment analyzer</a> and <a href="https://johnkoerner.com/csharp/creating-a-code-fix-that-fixes-comments/">creating a code fix</a> for that analyzer. The final thing that is needed for any analyzer is a good set of unit tests.</p>
+<p>To start we need to create a <code>TestClass</code> that inherits from <code>CodeFixVerifier</code>.</p>
+<pre><code>[TestClass]
+public class EmptyCommentCodeFix : CodeFixVerifier
+{
+}
+</code></pre>
+<p>The <code>CodeFixVerifier</code> base class provides a few helper methods that make testing your analyzer much easier. To start using it we need to override a few methods. We'll start by overriding the<code>GetCSharpCodeFixProvider</code>and return an instance of our<code>EmptyCommentCodeFix</code></p>
+<pre><code>protected override CodeFixProvider GetCSharpCodeFixProvider()
+{
+    return new AnalyzerSamples.Comments.EmptyCommentCodeFix();
+}
+</code></pre>
+<p>Next we will override the <code>GetCharpDiagnosticAnalyzer</code> method and return to it an instance of our <code>EmptyCommentAnalyzer</code></p>
+<pre><code>protected override DiagnosticAnalyzer GetCSharpDiagnosticAnalyzer()
+{
+    return new EmptyCommentAnalyzer();
+}
+</code></pre>
+<p>These two overrides provide the underlying base class with the instances it needs to work with all of the helper methods it provides. Obviously, you could do all of this wiring up yourself, but this base class just makes it easier.</p>
+<p>At this point, we can write our first test. We'll start with a very simple test that exercises the most basic of uses of the diagnostic. We can start this by creating some basic test code:</p>
+<pre><code>[TestMethod]
+public void TestBasicEmptyComment()
+{
+    var testCode = @"
+class Foo
+{
+    public void Bar()
+    {
+        //
+    }
+}";
+</code></pre>
+<p>Given this code, we expect a diagnostic to appear at line 6 column 9. We now need to declare what we expect to happen and verify it. To do this we can create a diagnostic result and use the <code>VerifyCSharpDiagnostic</code> method.</p>
+<pre><code>var expected = new DiagnosticResult
+{
+    Id = EmptyCommentAnalyzer.DiagnosticId,
+    Message = EmptyCommentAnalyzer.MessageFormat.ToString(),
+    Severity = DiagnosticSeverity.Warning,
+    Locations =
+        new[] {
+                new DiagnosticResultLocation("Test0.cs", 6, 9)
+            }
+};
+this.VerifyCSharpDiagnostic(testCode, expected);
+</code></pre>
+<p>This code will pass and verify that the diagnostic is raised at the correct location. Try playing with the line or column numbers. Notice that if you get them wrong, the error message will give you the correct location to make it easier to get your locations correct when first creating the unit tests. For example, if I change the column parameter to 10, then I get the following error:</p>
+<p><em>Assert.IsTrue failed. Expected diagnostic to start at column "10" was actually at column "9"</em></p>
+<p>At this point we can create the expected code for the fix and verify that the code gets fixed correctly. To do this, we use the <code>VerifyCSharpFix</code> method sending it the original code and the fixed code.</p>
+<pre><code>var expectedFixedCode = @"
+class Foo
+{
+    public void Bar()
+    {
+    }
+}";
+this.VerifyCSharpFix(testCode, expectedFixedCode);
+</code></pre>
+<p>With that, we have a test that validates our analyzer and our code fix. The full code for the test class is:</p>
+<pre><code> [TestClass]
+    public class EmptyCommentCodeFix : CodeFixVerifier
+    {
+
+        [TestMethod]
+        public void TestBasicEmptyComment()
+        {
+            var testCode = @"
+class Foo
+{
+    public void Bar()
+    {
+        //
+    }
+}";
+            var expected = new DiagnosticResult
+            {
+                Id = EmptyCommentAnalyzer.DiagnosticId,
+                Message = EmptyCommentAnalyzer.MessageFormat.ToString(),
+                Severity = DiagnosticSeverity.Warning,
+                Locations =
+                    new[] {
+                            new DiagnosticResultLocation("Test0.cs", 6, 9)
+                        }
+            };
+            this.VerifyCSharpDiagnostic(testCode, expected);
+
+            var expectedFixedCode = @"
+class Foo
+{
+    public void Bar()
+    {
+    }
+}";
+            this.VerifyCSharpFix(testCode, expectedFixedCode);
+        }
+
+        protected override CodeFixProvider GetCSharpCodeFixProvider()
+        {
+            return new AnalyzerSamples.Comments.EmptyCommentCodeFix();
+        }
+
+        protected override DiagnosticAnalyzer GetCSharpDiagnosticAnalyzer()
+        {
+            return new EmptyCommentAnalyzer();
+        }
+    }
+</code></pre>
+<p>With all of the helper methods and classes provided by the Roslyn team, there is no excuse to not test your analyzers. For a more exhaustive lists of tests that could be run against this analyzer, you can look at the <a href="https://github.com/DotNetAnalyzers/StyleCopAnalyzers/blob/master/StyleCop.Analyzers/StyleCop.Analyzers.Test/ReadabilityRules/SA1120UnitTests.cs">SA1120 unit tests</a> in the <a href="https://github.com/DotNetAnalyzers/StyleCopAnalyzers">StyleCopAnalyzers project</a> on GitHub.</p>
+<p>*Image Credit: <a href="https://flic.kr/p/hpEzjX">r. nial bradshaw</a> via <a href="https://creativecommons.org/licenses/by/2.0/">Creative Commons</a></p>

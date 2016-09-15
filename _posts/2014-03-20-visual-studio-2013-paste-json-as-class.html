@@ -1,0 +1,56 @@
+---
+layout: post
+status: publish
+published: true
+title: Visual Studio 2013 - Paste JSON as Class
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 831
+wordpress_url: http://johnkoerner.com/?p=831
+date: '2014-03-20 02:34:44 -0400'
+date_gmt: '2014-03-20 02:34:44 -0400'
+categories:
+- C#
+tags: []
+---
+<p>There is a really cool new feature in Visual Studio 2013 that lets you paste JSON or XML and create a class hierarchy from it.  For example, if you have the following JSON:</p>
+<pre><code>{
+"People" :[{
+    "First Name" : "John",
+    "Last Name" : "Koerner", 
+    "Address" : {
+        "Street" : "1234 Main",
+        "City" : "Somewhere",
+        "State" : "MI",
+        "Zip" : 12345
+    }
+  }]
+}
+</code></pre>
+<p>You can open up a .cs file in VS 2013, and under the <code>Edit-&gt;Paste Special</code> menu, you have the option to <code>Paste JSON as Classes</code>, which will create the following class hierarchy:</p>
+<pre><code>public class Rootobject
+{
+    public Person[] People { get; set; }
+}
+
+public class Person
+{
+    public string FirstName { get; set; }
+    public string LastName { get; set; }
+    public Address Address { get; set; }
+}
+
+public class Address
+{
+    public string Street { get; set; }
+    public string City { get; set; }
+    public string State { get; set; }
+    public int Zip { get; set; }
+}
+</code></pre>
+<p>Even though this is a really small feature, it's just one of those small things that just makes working in visual studio that much easier.</p>

@@ -1,0 +1,140 @@
+---
+layout: post
+status: publish
+published: true
+title: Working With Catch Blocks in your Roslyn Analyzer
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1197
+wordpress_url: https://johnkoerner.com/?p=1197
+date: '2015-07-20 02:45:16 -0400'
+date_gmt: '2015-07-20 02:45:16 -0400'
+categories:
+- C#
+- Code Analysis
+- Roslyn
+tags:
+- C#
+- Code Analysis
+- roslyn
+---
+<p>Exceptions. Most developers have a love/hate relationship with them. And catching general exceptions is a topic that gets discussed <a href="http://stackoverflow.com/questions/21938/is-it-really-that-bad-to-catch-a-general-exception">over</a> and <a href="http://stackoverflow.com/questions/1742940/why-not-catch-general-exceptions">over</a> and <a href="http://programmers.stackexchange.com/questions/164256/is-catching-general-exceptions-really-a-bad-thing">over</a>. Regardless of which side of the fence you are on, you may run into a scenario when you want to write an analyzer that can enforce your team's standards when working with exceptions. Roslyn offers a few different SyntaxKinds which you can register for that give you access to various parts of a catch statement.</p>
+<table>
+<thead>
+<tr>
+<th>
+        Syntax Kind
+      </th>
+<th>
+        Description
+      </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+        SyntaxKind.CatchClause
+      </td>
+<td>
+        This represents the entirety of the catch statement and the body of the work to be done inside the catch clause.
+      </td>
+</tr>
+<tr>
+<td>
+        SyntaxKind.CatchDeclaration
+      </td>
+<td>
+        This represents the variable declaration portion of the catch clause. So in the catch clause <code>catch (Exception ex) when (i==1)</code>, this node would represent <code>Exception ex</code>
+      </td>
+</tr>
+<tr>
+<td>
+        SyntaxKind.CatchFilterClause
+      </td>
+<td>
+        This represents the filter provided as part of the catch clause. So in the catch clause <code>catch (Exception ex) when (i==1)</code>, this node would represent <code>i==1</code>
+      </td>
+</tr>
+<tr>
+<td>
+        SyntaxKind.CatchKeyword
+      </td>
+<td>
+        This represents the catch keyword that is part of a catch clause.
+      </td>
+</tr>
+</tbody>
+</table>
+<p>So, now that we know the different types of syntax nodes we can work with, we can put them to use in a custom analyzer. For example, say you wanted to raise a diagnostic anytime a <code>System.Exception</code> was caught. As we covered in the <a href="https://johnkoerner.com/csharp/working-with-types-in-your-analyzer/">Working with Types</a> post, you need to capture the type you want to check from the Compilation engine. Since in this case we care about <code>System.Exception</code>, we will capture that from a <code>CompilationStartAction</code>.</p>
+<pre><code>context.RegisterCompilationStartAction((compileContext) =&gt;
+{
+    var exceptionType = compileContext.Compilation.GetTypeByMetadataName("System.Exception");
+</code></pre>
+<p>Next we need to register our code to run on a <code>SyntaxKind.CatchDeclaration</code>.</p>
+<pre><code>compileContext.RegisterSyntaxNodeAction((symbolContext) =&gt;
+{
+}, SyntaxKind.CatchDeclaration);
+</code></pre>
+<p>Inside the body of this action, we can check a few things. First, we should check that the declaration has a type. The main reasons it may not have a type is that the user is currently typing and they haven't gotten there yet, or just that the document is in a non-compilable state. If we run into this scenario, we will just stop analyzing for now.</p>
+<pre><code>var errorSymbol = symbolContext.Node as CatchDeclarationSyntax;
+
+if (errorSymbol.Type.IsMissing)
+{
+    return;
+}
+</code></pre>
+<p>After that, we simply need to get the type of the variable from the semantic model and check it against the <code>exceptionType</code> we stashed away earlier.</p>
+<pre><code>var variableTypeInfo = symbolContext.SemanticModel.GetTypeInfo(errorSymbol.Type).ConvertedType as INamedTypeSymbol;
+
+if (variableTypeInfo == null)
+    return;
+
+if (variableTypeInfo.Equals(exceptionType))
+{
+    symbolContext.ReportDiagnostic(Diagnostic.Create(Rule, errorSymbol.GetLocation()));
+}
+</code></pre>
+<p>So, the full diagnostic is now:</p>
+<pre><code>context.RegisterCompilationStartAction((compileContext) =&gt;
+{
+    var exceptionType = compileContext.Compilation.GetTypeByMetadataName("System.Exception");
+    compileContext.RegisterSyntaxNodeAction((symbolContext) =&gt;
+    {
+        var errorSymbol = symbolContext.Node as CatchDeclarationSyntax;
+
+        if (errorSymbol.Type.IsMissing)
+        {
+            return;
+        }
+
+        var variableTypeInfo = symbolContext.SemanticModel.GetTypeInfo(errorSymbol.Type).ConvertedType as INamedTypeSymbol;
+
+        if (variableTypeInfo == null)
+            return;
+
+        if (variableTypeInfo.Equals(exceptionType))
+        {
+            symbolContext.ReportDiagnostic(Diagnostic.Create(Rule, errorSymbol.GetLocation()));
+        }
+    }, SyntaxKind.CatchDeclaration);
+});
+</code></pre>
+<p>At this point, we have a fully functioning analyzer that raises a diagnostic anytime a general exception is caught. While this is nice, there is also the scenario where there is no CatchDeclaration specified, i.e. the user just has a <code>catch</code> keyword on a line. For these scenarios, we can register a <code>SyntaxNodeAction</code> for a <code>SyntaxKind.CatchClause</code> and check to see if a declaration exists. If no declaration exists, then we can raise the diagnostic.</p>
+<pre><code>compileContext.RegisterSyntaxNodeAction((symbolContext) =&gt;
+{
+    var errorSymbol = symbolContext.Node as CatchClauseSyntax;
+
+    if (errorSymbol.Declaration == null)
+    {
+        symbolContext.ReportDiagnostic(Diagnostic.Create(Rule, errorSymbol.CatchKeyword.GetLocation()));
+        return;
+    }
+}, SyntaxKind.CatchClause);
+</code></pre>
+<p>As you can see, the code analysis tools in Roslyn make it easy to write an analyzer that will help nudge your team along to use exceptions correctly (for various definitions of correct :) ).</p>
+<p><em>Image Credit: <a href="https://flic.kr/p/4wQQzp">Andrei Niemimäki</a> via <a href="https://creativecommons.org/licenses/by-sa/2.0/">Creative Commons</a></em></p>

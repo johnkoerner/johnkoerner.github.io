@@ -1,0 +1,129 @@
+---
+layout: post
+status: publish
+published: true
+title: 'Code Analyzers:  They aren''t just for C#'
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1211
+wordpress_url: https://johnkoerner.com/?p=1211
+date: '2015-07-23 02:05:05 -0400'
+date_gmt: '2015-07-23 02:05:05 -0400'
+categories:
+- C#
+- Code Analysis
+- VB
+- Roslyn
+tags:
+- C#
+- Code Analysis
+- roslyn
+- Visual Studio 2015
+---
+<p>Visual Basic has always had a little place in my heart. VB5 was the language I used at my first job and VB.Net was the language I used to transition into managed code. Luckily for us, Microsoft has kept improving VB.Net and the Roslyn compiler supports it as a first class citizen, just like C#.</p>
+<p>So I am going to show you how to write an analyzer that analyzes Visual Basic code, but I will write the analyzer in C#, as that is my preferred language. To start analyzing Visual Basic code, you need to add a the <code>Microsoft.CodeAnalysis.VisualBasic</code> nuget package to your project.</p>
+<p>Now, when creating a new analyzer, you need to make sure you indicate it is a Visual Basic analyzer by setting the <code>DiagnosticAnalyzer</code> attribute to include <code>LanguageNames.VisualBasic</code>. You should also add usings for the <code>Microsoft.CodeAnalysis.VisualBasic</code> and <code>Microsoft.CodeAnalysis.VisualBasic.Syntax</code> to ensure that the type you need to analyze for Visual Basic code are available.</p>
+<pre><code>using Microsoft.CodeAnalysis.VisualBasic;
+using Microsoft.CodeAnalysis.VisualBasic.Syntax;
+
+namespace AnalyzerSamples.VB
+{
+    [DiagnosticAnalyzer(LanguageNames.VisualBasic)]
+    public class OptionExplicitAndOptionStrictShouldNotBeTurnedOff : DiagnosticAnalyzer
+    {
+      //...
+    }
+}
+</code></pre>
+<p>In this analyzer, we are going to analyze Option Statements and ensure that <code>Option Explicit</code> and <code>Option Strict</code> are not set to <code>Off</code>. To do this, we will register a syntax node action for <code>SyntaxKind.OptionStatement</code>. Note that this SyntaxKind is in the <code>Microsoft.CodeAnalysis.VisualBasic.Syntax</code>, instead of the CSharp namespaces we have used in past analyzers.</p>
+<pre><code>public override void Initialize(AnalysisContext context)
+{
+    context.RegisterSyntaxNodeAction(AnalyzeSyntax, SyntaxKind.OptionStatement);
+}
+</code></pre>
+<p>Our <code>AnalyzeSyntax</code> method will run a few checks to make sure that we are working with a valid option statement (remember analyzers can run against code that is not compilable) and that it is a type that we care about. To start, our method simply gets the option statement and makes sure it has both the Name and Value keywords. If not, we stop analyzing.</p>
+<pre><code>private static void AnalyzeSyntax(SyntaxNodeAnalysisContext context)
+{
+    // TODO: Replace the following code with your own analysis, generating Diagnostic objects for any issues you find
+    var optionStatement = context.Node as OptionStatementSyntax;
+
+    if (optionStatement == null)
+        return;
+
+    if (optionStatement.NameKeyword.IsMissing || optionStatement.ValueKeyword.IsMissing)
+        return;
+</code></pre>
+<p>Next we are going to look at the name keyword and check it's kind. Since we are checking Explicit and Strict, we will look to see if it is a <code>SyntaxKind.Explicit</code> or <code>SyntaxKind.Strict</code>:</p>
+<pre><code>// Look to see if the keyword is Strict or Explicit.
+if (!(optionStatement.NameKeyword.IsKind(SyntaxKind.StrictKeyword) || optionStatement.NameKeyword.IsKind(SyntaxKind.ExplicitKeyword)))
+    return;
+</code></pre>
+<p>After we have validated that it is an option we care about, we can then check the value to see if it is on or off. This is as easy as checking the ValueKeyword to see if its SyntaxKind is <code>SyntaxKind.OffKeyword</code>:</p>
+<pre><code>// We only care if it is set to Off
+if (!optionStatement.ValueKeyword.IsKind(SyntaxKind.OffKeyword))
+    return;
+</code></pre>
+<p>If we have then reached this point in the code, we know that one of the two keywords is set to off and we can raise a diagnostic at the correct location with the correct message. Notice that we use the <code>ValueText</code> of the <code>NameKeyword</code> to allow the message to correctly show the name of the keyword that is causing the violation.</p>
+<pre><code>// For all such symbols, produce a diagnostic.
+var diagnostic = Diagnostic.Create(Rule, context.Node.GetLocation(), optionStatement.NameKeyword.ValueText);
+context.ReportDiagnostic(diagnostic);
+</code></pre>
+<p>The full code for the analyzer is:</p>
+<pre><code>using System.Collections.Immutable;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.VisualBasic;
+using Microsoft.CodeAnalysis.VisualBasic.Syntax;
+
+namespace AnalyzerSamples.VB
+{
+    [DiagnosticAnalyzer(LanguageNames.VisualBasic)]
+    public class OptionExplicitAndOptionStrictShouldNotBeTurnedOff : DiagnosticAnalyzer
+    {
+        public const string DiagnosticId = "OptionExplicitAndOptionStrictShouldNotBeTurnedOff";
+        internal static readonly LocalizableString Title = "Option strict and option explicit should not be turned off";
+        internal static readonly LocalizableString MessageFormat = "Option {0} should not be turned off.";
+        internal const string Category = "Visual Basic";
+
+        internal static DiagnosticDescriptor Rule = new DiagnosticDescriptor(DiagnosticId, Title, MessageFormat, Category, DiagnosticSeverity.Warning, true);
+
+        public override ImmutableArray&lt;DiagnosticDescriptor&gt; SupportedDiagnostics { get { return ImmutableArray.Create(Rule); } }
+
+        public override void Initialize(AnalysisContext context)
+        {
+            context.RegisterSyntaxNodeAction(AnalyzeSyntax, SyntaxKind.OptionStatement);
+        }
+
+        private static void AnalyzeSyntax(SyntaxNodeAnalysisContext context)
+        {
+            var optionStatement = context.Node as OptionStatementSyntax;
+
+            if (optionStatement == null)
+                return;
+
+            if (optionStatement.NameKeyword.IsMissing || optionStatement.ValueKeyword.IsMissing)
+                return;
+
+            // Look to see if the keyword is Strict or Explicit.
+            if (!(optionStatement.NameKeyword.IsKind(SyntaxKind.StrictKeyword) || optionStatement.NameKeyword.IsKind(SyntaxKind.ExplicitKeyword)))
+                return;
+
+            // We only care if it is set to Off
+            if (!optionStatement.ValueKeyword.IsKind(SyntaxKind.OffKeyword))
+                return;
+
+            // For all such symbols, produce a diagnostic.
+            var diagnostic = Diagnostic.Create(Rule, context.Node.GetLocation(), optionStatement.NameKeyword.ValueText);
+
+            context.ReportDiagnostic(diagnostic);
+
+        }
+    }
+}
+</code></pre>
+<p>That's it. Writing analyzers for Visual Basic specific code is just as easy as writing analyzers for C# code. Many analyzers may be able to share a good majority, if not all, of their code to analyze both C# and Visual Basic. So, next time you are writing an analyzer, see how hard it would be to make it work for both C# and Visual Basic. A VB programmer may thank you for it.</p>

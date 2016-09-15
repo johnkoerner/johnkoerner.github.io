@@ -1,0 +1,47 @@
+---
+layout: post
+status: publish
+published: true
+title: 'Creating a PowerShell Navigation Provider: Introduction'
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 895
+wordpress_url: http://johnkoerner.com/?p=895
+date: '2014-06-26 12:33:54 -0400'
+date_gmt: '2014-06-26 12:33:54 -0400'
+categories:
+- C#
+- PowerShell
+tags: []
+---
+<p>PowerShell has some really nice ways that it can be extended. One of those ways is via <a href="http://msdn.microsoft.com/en-us/library/ee126186(v=vs.85).aspx">Providers</a>. If you open up PowerShell and call <code>Get-PSDrive</code> you will see a list of the drives on your machine along with some other providers to access things like the registry, certificate stores, and aliases. Using these providers is very similar to navigating a normal drive, for example, I can navigate around the registry by simply typing <code>cd HKCU:</code>. Now I can see items in the registry by typing <code>dir</code> and I see items in my registry (I used <code>dir | Format-Table -Property Name</code> for brevity):</p>
+<pre><code>Name
+----
+HKEY_CURRENT_USER\AppEvents
+HKEY_CURRENT_USER\Console
+HKEY_CURRENT_USER\Control Panel
+HKEY_CURRENT_USER\Environment
+HKEY_CURRENT_USER\EUDC
+HKEY_CURRENT_USER\Identities
+HKEY_CURRENT_USER\Keyboard Layout
+HKEY_CURRENT_USER\Network
+HKEY_CURRENT_USER\Policies
+HKEY_CURRENT_USER\Printers
+HKEY_CURRENT_USER\Software
+HKEY_CURRENT_USER\System
+HKEY_CURRENT_USER\WXP
+HKEY_CURRENT_USER\Volatile Environment
+</code></pre>
+<p>Navigating these items is now as easy as using <code>cd</code> to change directories. So <code>cd Software\Microsoft\Windows\CurrentVersion</code> takes me into that node within the registry. From here you can now use other commands to <a href="http://blogs.technet.com/b/heyscriptingguy/archive/2012/05/12/weekend-scripter-use-powershell-to-easily-modify-registry-property-values.aspx">update</a> the registry. As you can see, this is a convenient way to access data in the registry and since it is inside of PowerShell, it can all be scripted.</p>
+<p>Creating a basic PowerShell provider is a relatively simple task. Over the next few blog posts, I will walk through the basics of creating a <a href="http://msdn.microsoft.com/en-us/library/system.management.automation.provider.navigationcmdletprovider(v=vs.85).aspx">Navigation Cmdlet Provider</a>, so you can add your own custom drive to PowerShell.</p>
+<ul>
+<li><a href="http://johnkoerner.com/csharp/creating-a-powershell-navigation-provider-1-the-basics/">Creating a PowerShell Navigation Provider: #1 The Basics</a></li>
+<li><a href="http://johnkoerner.com/csharp/creating-a-powershell-navigation-provider-2-basic-getchilditems-support/">Creating a PowerShell Navigation Provider: #2 Basic GetChildItems() Support</a></li>
+<li><a href="http://johnkoerner.com/csharp/creating-a-powershell-navigation-provider-3-nested-getchilditems-support/">Creating a PowerShell Navigation Provider: #3 Nested GetChildItems() Support</a></li>
+<li><a href="http://johnkoerner.com/csharp/creating-a-powershell-navigation-provider-4-tab-completion/">Creating a PowerShell Navigation Provider: #4 Tab Completion</a></li>
+</ul>

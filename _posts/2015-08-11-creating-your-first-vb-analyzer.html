@@ -1,0 +1,87 @@
+---
+layout: post
+status: publish
+published: true
+title: Creating your first VB Analyzer
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1273
+wordpress_url: https://johnkoerner.com/?p=1273
+date: '2015-08-11 02:34:52 -0400'
+date_gmt: '2015-08-11 02:34:52 -0400'
+categories:
+- Code Analysis
+- VB
+- Roslyn
+tags:
+- Code Analysis
+- roslyn
+- Visual Studio 2015
+- VB
+---
+<p>Welcome to the wonderful world of Code Analyzers. With Visual Studio 2015, you now have the ability to create a custom analyzer to provide real time warnings and errors to developers as they code. This type of technology has all sorts of uses. If you are creating a library and want to ensure it is being used properly, you can create an analyzer. If you want to be sure your entire development team is using the same style, you can create analyzers.</p>
+<p>To get started, make sure you have the <a href="https://www.visualstudio.com/en-us/news/vs2015-vs.aspx">latest</a> version of Visual Studio 2015. You will also need to install the Roslyn SDK. You can install this from the Extensions Manager inside Visual Studio. Simply search inside the Visual Studio Gallery for the term "Roslyn SDK".</p>
+<p><a href="https://johnkoerner.com/wp-content/uploads/2015/08/RoslynSDK_Install.png"><img src="https://johnkoerner.com/wp-content/uploads/2015/08/RoslynSDK_Install.png" alt="RoslynSDK_Install" width="958" height="657" class="alignnone size-full wp-image-1277" /></a></p>
+<p>After the install, you can now create a new project. From the new project dialog, select the Extensibility group and you will see different types of analyzer projects you can create. Select the Analyzer With CodeFix (Nuget + VSIX).</p>
+<p><a href="https://johnkoerner.com/wp-content/uploads/2015/08/VBAnalyzerWithCodeFix.png"><img src="https://johnkoerner.com/wp-content/uploads/2015/08/VBAnalyzerWithCodeFix.png" alt="VBAnalyzerWithCodeFix" width="955" height="662" class="alignnone size-full wp-image-1279" /></a></p>
+<p>Once the project is created, you can verify it is working by running the project. This will start up a new Visual Studio instance which is running with a different root suffix. This is typically called an experimental instance. Its settings are independent from your default development environment and I usually recommend using a different theme, so you can tell the two apart.</p>
+<p>Once your experimental instance is up and running, create a new console application. After the application is open, you'll notice that Module1 is underlined. If you hover over it, you'll see the message <em>Type name 'Module1' contains lowercase letters</em>. This is the diagnostic you just created at work.</p>
+<p><a href="https://johnkoerner.com/wp-content/uploads/2015/08/VBSampleDiagnostic.png"><img src="https://johnkoerner.com/wp-content/uploads/2015/08/VBSampleDiagnostic.png" alt="VBSampleDiagnostic" width="399" height="160" class="alignnone size-full wp-image-1282" /></a></p>
+<p>Let's return to the development instance and look a little deeper at the solution. The solution contains 3 projects, your analyzer, tests for your analyzer, and a visual studio extension for your analyzer. Inside the analyzer project, there are two <code>.vb</code> files included, which represent the sample analyzer and a sample code fix for that analyzer.</p>
+<p>Next let's dig into the sample analyzer. This analyzer simply looks at any NamedType (e.g. class, module, ...) and it will raise a diagnostic if the type name contains lowercase letters.</p>
+<p>The class definition starts with:</p>
+<pre><code>&lt;DiagnosticAnalyzer(LanguageNames.VisualBasic)&gt;
+Public Class Analyzer1Analyzer
+    Inherits DiagnosticAnalyzer
+</code></pre>
+<p>The <code>DiagnosticAnalyzer</code> attribute indicates which language this diagnostic supports and the class inherits from the DiagnosticAnalyzer base class which provides the base functionality for analyzers.</p>
+<p>Up next is the code to do setup the <code>DiagnosticDescriptor</code>, which is used to provide the messaging for your diagnostic.</p>
+<pre><code>Public Const DiagnosticId = "Analyzer1"
+
+' You can change these strings in the Resources.resx file. If you do not want your analyzer to be localize-able, you can use regular strings for Title and MessageFormat.
+Private Shared ReadOnly Title As LocalizableString = 
+      New LocalizableResourceString(NameOf(My.Resources.AnalyzerTitle), My.Resources.ResourceManager, GetType(My.Resources.Resources))
+Private Shared ReadOnly MessageFormat As LocalizableString = 
+      New LocalizableResourceString(NameOf(My.Resources.AnalyzerMessageFormat), My.Resources.ResourceManager, GetType(My.Resources.Resources))
+Private Shared ReadOnly Description As LocalizableString = 
+      New LocalizableResourceString(NameOf(My.Resources.AnalyzerDescription), My.Resources.ResourceManager, GetType(My.Resources.Resources))
+Private Const Category = "Naming"
+
+Private Shared Rule As New DiagnosticDescriptor(DiagnosticId, Title, MessageFormat, Category, DiagnosticSeverity.Warning, isEnabledByDefault:=True, description:=Description)
+</code></pre>
+<p>The <code>Rule</code> will be used when you raise the diagnostic and it provides Visual Studio with the information it needs to properly present the diagnostic to the user. The next chunk of code overrides the <code>SupportedDiagnostics</code> property and returns the rule we just defined.</p>
+<pre><code>Public Overrides ReadOnly Property SupportedDiagnostics As ImmutableArray(Of DiagnosticDescriptor)
+    Get
+        Return ImmutableArray.Create(Rule)
+    End Get
+End Property
+</code></pre>
+<p>As you can probably guess, you can return any number of diagnostics that are supported by this analyzer. Now we'll move to the more interesting bits of code that actually do the work. Up first is the <code>Initialize</code> method.</p>
+<pre><code>Public Overrides Sub Initialize(context As AnalysisContext)
+    ' TODO: Consider registering other actions that act on syntax instead of or in addition to symbols
+    context.RegisterSymbolAction(AddressOf AnalyzeSymbol, SymbolKind.NamedType)
+End Sub
+</code></pre>
+<p>This method is called when your diagnostic is loaded and you register actions that should be called when Roslyn is doing certain types of analysis. In this example, we are indicating that we care about NamedType symbols. If you are curious about other types of things for which you can register, look at some other posts on this site, like <a href="https://johnkoerner.com/csharp/creating-a-code-fix-that-fixes-comments/">this one</a>, <a href="https://johnkoerner.com/csharp/code-analyzers-they-arent-just-for-c/">this one</a>, or <a href="https://johnkoerner.com/csharp/working-with-catch-blocks-in-your-roslyn-analyzer/">this one</a>.</p>
+<p>Finally, the code we have been waiting for, the actual diagnostic.</p>
+<pre><code>Private Sub AnalyzeSymbol(context As SymbolAnalysisContext)
+    ' TODO: Replace the following code with your own analysis, generating Diagnostic objects for any issues you find
+
+    Dim namedTypeSymbol = CType(context.Symbol, INamedTypeSymbol)
+
+    ' Find just those named type symbols with names containing lowercase letters.
+    If namedTypeSymbol.Name.ToCharArray.Any(AddressOf Char.IsLower) Then
+        ' For all such symbols, produce a diagnostic.
+        Dim diag = Diagnostic.Create(Rule, namedTypeSymbol.Locations(0), namedTypeSymbol.Name)
+
+        context.ReportDiagnostic(diag)
+    End If
+End Sub
+</code></pre>
+<p>This code gets the NamedTypeSymbol from the context and then tests to see if there are any lowercase letters. If there are, it calls Diagnostic.Create to create the diagnostic using the first location of the symbol and then uses the <code>ReportDiagnostic</code> from the context to report the diagnostic.</p>
+<p>That's it. As you can see, creating a simple diagnostic is very easy with all of the tooling and APIs supported by the Roslyn compiler. I encourage you to try and create a simple analyzer of your own to get more familiar with the process. As with anything, the more you practice, the better you get.</p>

@@ -1,0 +1,103 @@
+---
+layout: post
+status: publish
+published: true
+title: Analyzing Problematic Lambda Expressions used in Event Handlers
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1450
+wordpress_url: https://johnkoerner.com/?p=1450
+date: '2015-10-26 03:15:26 -0400'
+date_gmt: '2015-10-26 03:15:26 -0400'
+categories:
+- C#
+- Code Analysis
+tags:
+- C#
+- Code Analysis
+- roslyn
+- vs2015
+- Visual Studio 2015
+---
+<p>I was recently reading an <a href="http://thebillwagner.com/Blog/Item/2015-10-13-LambdaSyntaxandPerformance">article</a> by <a href="https://twitter.com/billwagner">Bill Wagner</a>. At the end of the article Bill covers a common mistake that can cause problems using inline lambda expressions when adding and removing event handlers. Looking at these examples, I thought this would be a perfect case for a code analyzer.</p>
+<p>So, the problematic code we are trying to catch is:</p>
+<pre><code>source.ProgressChanged += (_, message) =&gt; Console.WriteLine(message);
+source.ProgressChanged -= (_, message) =&gt; Console.WriteLine(message);
+</code></pre>
+<p>To start, we are going to register an action for all <code>AddAssignmentExpression</code> and <code>SubtractAssignmentExpression</code> nodes.</p>
+<pre><code>context.RegisterSyntaxNodeAction(AnalyzeSyntax, SyntaxKind.AddAssignmentExpression, SyntaxKind.SubtractAssignmentExpression);
+</code></pre>
+<p>In our method, we are going to grab the node and determine the type so we can use it in our message later.</p>
+<pre><code>var assignmentNode = context.Node as AssignmentExpressionSyntax;
+string assignmentType = "";
+
+if (assignmentNode.IsKind(SyntaxKind.AddAssignmentExpression))
+    assignmentType = "+=";
+else if (assignmentNode.IsKind(SyntaxKind.SubtractAssignmentExpression))
+    assignmentType = "-=";
+else
+    return;
+</code></pre>
+<p>Next, we will look at the right hand side of the operation and check if it is a lambda expression. If not, we don't need to analyze any further.</p>
+<pre><code>if (!assignmentNode.Right.IsKind(SyntaxKind.ParenthesizedLambdaExpression))
+    return;
+</code></pre>
+<p>Finally, if we are at this point, we are either in a <code>+=</code> or <code>-=</code> operation with the right hand side being a lambda expression, so we can now raise the diagnostic:</p>
+<pre><code> context.ReportDiagnostic(Diagnostic.Create(Rule, assignmentNode.GetLocation(), assignmentType));
+</code></pre>
+<p>That's all there is to it. The full analyzer code is:</p>
+<pre><code>using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
+using System.Collections.Immutable;
+
+namespace EventAnalyzer
+{
+    [DiagnosticAnalyzer(LanguageNames.CSharp)]
+    public class EventAnalyzerAnalyzer : DiagnosticAnalyzer
+    {
+        public const string DiagnosticId = "InlineDelegateEventAnalyzer";
+
+        // You can change these strings in the Resources.resx file. If you do not want your analyzer to be localize-able, you can use regular strings for Title and MessageFormat.
+        private static readonly LocalizableString Title = "Don't use += and -= with inline lambda expressions for events";
+        private static readonly LocalizableString MessageFormat = "Don't use {0} with inline lambda expressions for events"; 
+        private static readonly LocalizableString Description = "Don't use += and -= with inline lambda expressions for events.  If you add an event with a += and an inline lambda expression there is no way to properly remove the handler.  Using -= with an inline lambda expression will not remove an event handler.";
+        private const string Category = "Usage";
+
+        private static DiagnosticDescriptor Rule = new DiagnosticDescriptor(DiagnosticId, Title, MessageFormat, Category, DiagnosticSeverity.Warning, isEnabledByDefault: true, description: Description);
+
+        public override ImmutableArray&lt;DiagnosticDescriptor&gt; SupportedDiagnostics { get { return ImmutableArray.Create(Rule); } }
+
+        public override void Initialize(AnalysisContext context)
+        {
+            context.RegisterSyntaxNodeAction(AnalyzeSyntax, SyntaxKind.AddAssignmentExpression, SyntaxKind.SubtractAssignmentExpression);
+        }
+
+        private static void AnalyzeSyntax(SyntaxNodeAnalysisContext context)
+        {
+            var assignmentNode = context.Node as AssignmentExpressionSyntax;
+            string assignmentType = "";
+
+            if (assignmentNode.IsKind(SyntaxKind.AddAssignmentExpression))
+                assignmentType = "+=";
+            else if (assignmentNode.IsKind(SyntaxKind.SubtractAssignmentExpression))
+                assignmentType = "-=";
+            else
+                return;
+
+            if (!assignmentNode.Right.IsKind(SyntaxKind.ParenthesizedLambdaExpression))
+                return;
+
+            context.ReportDiagnostic(Diagnostic.Create(Rule, assignmentNode.GetLocation(), assignmentType));
+        }
+    }
+}
+</code></pre>
+<p>Thanks to Bill for providing the inspiration for this analyzer and to <a href="https://twitter.com/JDanielSmith1">Dan Smith</a> for pointing me to the article. As you can see, it is very easy to create analyzers for specific situations when you know what to look for.</p>
+<p><em>Image Credit: <a href="https://flic.kr/p/87D6Jm">Roger Davies</a> via <a href="https://creativecommons.org/licenses/by/2.0/">Creative Commons</a></em></p>

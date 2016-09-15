@@ -1,0 +1,55 @@
+---
+layout: post
+status: publish
+published: true
+title: How to open a new tab in Chrome via C#
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1045
+wordpress_url: https://johnkoerner.com/?p=1045
+date: '2015-05-24 01:09:50 -0400'
+date_gmt: '2015-05-24 01:09:50 -0400'
+categories:
+- C#
+tags: []
+---
+<p>Usually sending keystrokes to another application is a relatively straightforward operation. You find the process, get the main window handle and then send the keys. For chrome, this is a little more tricky, as activating the main window doesn't get you in the correct state to send the keys. After doing some digging, I found <a href="http://stackoverflow.com/a/21903834/573218">this question</a> on stackoverflow. Basically, you need to find the <code>Chrome_WidgetWin_1</code> window and take the window immediately following that window. Activate that window and then you can send the keys to properly open a new window in Chrome. The code for this is:</p>
+<pre><code>private class NativeMethods
+{
+    [DllImport("user32.dll")]
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr GetWindow(IntPtr hWnd, GetWindow_Cmd uCmd);
+
+    public enum GetWindow_Cmd : uint
+    {
+        GW_HWNDFIRST = 0,
+        GW_HWNDLAST = 1,
+        GW_HWNDNEXT = 2,
+        GW_HWNDPREV = 3,
+        GW_OWNER = 4,
+        GW_CHILD = 5,
+        GW_ENABLEDPOPUP = 6
+    }
+}
+
+private void button_Click(object sender, RoutedEventArgs e)
+{
+    IntPtr chromeWindow = NativeMethods.FindWindow("Chrome_WidgetWin_1", null);
+    IntPtr chrome = NativeMethods.GetWindow(chromeWindow, NativeMethods.GetWindow_Cmd.GW_HWNDNEXT);
+
+    NativeMethods.SetForegroundWindow(chrome);
+
+    SendKeys.SendWait("^n");
+    SendKeys.SendWait("http://www.johnkoerner.com~");
+}
+</code></pre>

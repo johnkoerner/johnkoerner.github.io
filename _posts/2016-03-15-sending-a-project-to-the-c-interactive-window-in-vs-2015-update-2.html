@@ -1,0 +1,47 @@
+---
+layout: post
+status: publish
+published: true
+title: Sending a Project to the C# Interactive Window in VS 2015 Update 2
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1573
+wordpress_url: https://johnkoerner.com/?p=1573
+date: '2016-03-15 15:04:19 -0400'
+date_gmt: '2016-03-15 15:04:19 -0400'
+categories:
+- C#
+- vs2015
+tags: []
+---
+<p>Visual Studio 2015 Update 2 <strike>is currently in release candidate</strike> was just released and one of the cool new features is the ability to send a project to the C# interactive window.</p>
+<p>This allows you to right click on a project and send it to the interactive window and then utilize the classes and methods in that project from the interactive window. This can be very useful if you just want to do some quick prototyping or testing of your methods.</p>
+<p>To enable this functionality, right click on your project and select the <code>Initialize Interactive With Project</code> menu item.</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2016/03/InitializeInteractiveWithProject.png" alt="InitializeInteractiveWithProject" width="762" height="886" class="alignnone size-full wp-image-1575" /></p>
+<p>You'll see it build your project and then add all of the dependencies and the project as a reference to the interactive window.</p>
+<pre><code>&gt; #reset
+Resetting execution engine.
+Loading context from 'CSharpInteractive.rsp'.
+&gt; #r "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.5.1\System.dll"
+&gt; #r "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.5.1\System.Core.dll"
+&gt; #r "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.5.1\System.Xml.Linq.dll"
+&gt; #r "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.5.1\System.Data.DataSetExtensions.dll"
+&gt; #r "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.5.1\Microsoft.CSharp.dll"
+&gt; #r "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.5.1\System.Data.dll"
+&gt; #r "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.5.1\System.Net.Http.dll"
+&gt; #r "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.5.1\System.Xml.dll"
+&gt; #r "ConsoleApplication1.exe"
+&gt; using ConsoleApplication1;
+&gt;
+</code></pre>
+<p>My console application has an <code>Add</code> method in the <code>Baz</code> class. To use it, I can simply do the following:</p>
+<pre><code>&gt; Baz.Add(4,5)
+9
+</code></pre>
+<p>As you can see, this new functionality is moving closer to what is available in the F# interactive window and I hope to see more developers grab onto this functionality to improve their development workflows, as it can really change the way you work.</p>
+<p>Image Source:<a href="https://flic.kr/p/zA3Lc"> Jeff Kubina</a> via <a href="https://creativecommons.org/licenses/by-sa/2.0/">Creative Commons</a></p>

@@ -1,0 +1,72 @@
+---
+layout: post
+status: publish
+published: true
+title: Creating your First Code Analyzer
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1056
+wordpress_url: https://johnkoerner.com/?p=1056
+date: '2015-06-11 01:35:05 -0400'
+date_gmt: '2015-06-11 01:35:05 -0400'
+categories:
+- C#
+- Code Analysis
+- Roslyn
+tags:
+- C#
+- Code Analysis
+- roslyn
+---
+<p>Welcome to the wonderful world of Code Analyzers. With Visual Studio 2015, you now have the ability to create a custom analyzer to provide real time warnings and errors to developers as they code. This type of technology has all sorts of uses. If you are creating a library and want to ensure it is being used properly, you can create an analyzer. If you want to be sure your entire development team is using the same style, you can create analyzers.</p>
+<p>To get started, make sure you have the <a href="https://www.visualstudio.com/en-us/news/vs2015-vs.aspx">release candidate</a> version of Visual Studio 2015. You will also need to install the .Net Compiler Platform SDK Templates from the Visual Studios extensions dialog. It is important to get the templates that match the version of Visual Studio you are using. Since I am using the release candidate, I am getting the RC templates.</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2015/06/platformSDKTemplates-e1433904751283.png" alt="Extensions and Updates Dialog with .Net Compiler Platform SDK Templates for RC selected" /></p>
+<p>Now that you have the latest VS and the compiler platform templates, you can create a new analyzer project. The template is available under the <code>Extensibility</code> tab.</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2015/06/newproject.png" alt="New Project Dialog with Analyzer template selected" /></p>
+<p>Once created, you’ll notice that the solution has 3 projects</p>
+<ul>
+<li>MyFirstAnalyzer (This is actual analyzer)</li>
+<li>MyFirstAnalyzer.Test (Unit Tests)</li>
+<li>MyFirstAnalyzer.Vsix (Visual Studio extension)</li>
+</ul>
+<p>The MyFirstAnalyzer project already contains a very simple analyzer to get you started. The analyzer simply checks if a symbol contains lower case letters. It also provides a codefix to change the symbol to all uppercase. If you build and run your project, you will see a new instance of Visual Studio start and your analyzer will be loaded. This instance is referred to as an experimental instance. It has its own settings, so you can customize it without affecting your normal day-to-day environment. I recommend using a different theme in this environment, so you can tell them apart.</p>
+<p>In the experimental instance, you can open up an existing project or create a new project. If you browse into a <code>.cs</code> file, you will see that some class names will have a green squiggly line underneath them (provided they contain lowercase letters).</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2015/06/Analyzer.png" alt="Code Analyzer dialog with analyzer message" /></p>
+<p>If you place your cursor on the symbol and hit the Quick Actions key (Default is <code>Ctrl+.</code>), you will see options for fixing this warning. You have the option to fix or suppress the warning. It also provides a nice preview of the operation, so you know how the resulting code will look.</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2015/06/CodeFix.png" alt="Code fix window with Make Uppercase code fix shown" /></p>
+<p>Since we have verified that the analyzer works, let's look at the code that is creating all of this magic. Open the <code>DiagnosticAnalyzer.cs</code> file. The start of the file contains code that sets up the analyzer. The important lines here are the <code>Rule</code> of type <code>DiagnosticDescriptor</code>, which provides Visual Studio the description of your diagnostic and the <code>SupportedDiagnostics</code> property which indicates which diagnostics are supported by this analyzer. This is where VS gets the information to show the user about your diagnostic.</p>
+<pre><code>internal static DiagnosticDescriptor Rule = new DiagnosticDescriptor(DiagnosticId, Title, MessageFormat, Category, DiagnosticSeverity.Warning, isEnabledByDefault: true, description: Description);
+
+public override ImmutableArray&lt;DiagnosticDescriptor&gt; SupportedDiagnostics { get { return ImmutableArray.Create(Rule); } }
+</code></pre>
+<p>The <code>Initialize</code> method registers an Action in your analyzer to be called whenever a type of symbol is encountered. In this case the <code>AnalyzeSymbol</code> method is registered to be called anytime a <code>SymbolKind.NamedType</code> (e.g. a class) needs to be analyzed. In a future blog post, we will go over the different SymbolKinds and how they are used.</p>
+<pre><code>public override void Initialize(AnalysisContext context)
+{
+    // TODO: Consider registering other actions that act on syntax instead of or in addition to symbols
+    context.RegisterSymbolAction(AnalyzeSymbol, SymbolKind.NamedType);
+}
+</code></pre>
+<p>Finally, the code for the <code>AnalyzeSymbol</code> method is there. This code simply looks at the Symbol passed in and checks if it has any lowercase characters. If it does, it reports a diagnostics at the location of the symbol.</p>
+<pre><code>private static void AnalyzeSymbol(SymbolAnalysisContext context)
+{
+    // TODO: Replace the following code with your own analysis, generating Diagnostic objects for any issues you find
+    var namedTypeSymbol = (INamedTypeSymbol)context.Symbol;
+
+    // Find just those named type symbols with names containing lowercase letters.
+    if (namedTypeSymbol.Name.ToCharArray().Any(char.IsLower))
+    {
+        // For all such symbols, produce a diagnostic.
+        var diagnostic = Diagnostic.Create(Rule, namedTypeSymbol.Locations[0], namedTypeSymbol.Name);
+
+        context.ReportDiagnostic(diagnostic);
+    }
+}
+</code></pre>
+<p>The <code>Diagnostic.Create</code> line creates the diagnostic that is then reported to Visual Studio using the <code>context.ReportDiagnostic</code> method. <code>Diagnostic.Create</code> is a very powerful method and has a lot of overloads. I urge you to explore some of these overloads and see how you can change the behavior of the diagnostic that gets created.</p>
+<p>As you can see, creating an analyzer is pretty straightforward. You simply have to register yourself correctly and then you are in the pipeline for analyzing the code in a visual studio project. In the next blog post, we will modify the analyzer to support additional symbol types and cover some of the issues you may run into when working with different SymbolKinds.</p>
+<p><em>Image Credit: <a href="https://www.flickr.com/photos/practicalowl/1185217331/in/photolist-2NJxPz-6DobSF-5Qjix-5Da371-jyok9h-hH54JL-fQ6CnH-btCAxD-6Nnwy1-btCADk-8PCJ8C-4gjQW9-4UokrH-76mFYr-2N6JPc-7pwLUN-en62JV-dMoKLk-rfYQd-qzDvGU-6enrqz-8peEVM-kZdx3-fMHjtX-buFeJ2-i2C8g-7fRqZP-856FtU-a4yhRQ-7G1x5R-bb4bna-5mP1to-bs35vg-9V3xEP-67HD4M-aF4x59-9VATSc-4AVvYp-aPfTo4-9VAVRg-4yzkGK-6pLxY2-525PwA-9VAZsD-8f3rrF-5mtkLS-7psUzM-bqp3aZ-adZmEd-aDMSk2/">Kit</a> using <a href="https://creativecommons.org/licenses/by-nc/2.0/">Creative Commons License</a></em></p>

@@ -1,0 +1,139 @@
+---
+layout: post
+status: publish
+published: true
+title: Creating a code fix that fixes comments
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1247
+wordpress_url: https://johnkoerner.com/?p=1247
+date: '2015-07-30 02:38:32 -0400'
+date_gmt: '2015-07-30 02:38:32 -0400'
+categories:
+- C#
+- Code Analysis
+- Roslyn
+tags: []
+---
+<p>In a <a href="https://johnkoerner.com/csharp/navigating-trivia-in-your-diagnostic/">previous post</a> we created an analyzer that looked for blank comments. Since empty comments are a very fixable problem (just remove them), I figured tackling the code fix for this would be a useful exercise.</p>
+<p>To start, we need to register our code fix in the <code>RegisterCodeFixesAsync</code> method. In this method we simply loop over the diagnostics that have an ID we care about and register a method to perform the code fix.</p>
+<pre><code>public sealed override Task RegisterCodeFixesAsync(CodeFixContext context)
+{
+    foreach (var diagnostic in context.Diagnostics.Where(d =&gt; FixableDiagnosticIds.Contains(d.Id)))
+    {
+        context.RegisterCodeFix(CodeAction.Create("Remove the empty comment", 
+                token =&gt; GetTransformedDocumentAsync(context.Document, diagnostic, token)), diagnostic);
+    }
+
+    return Task.FromResult&lt;object&gt;(null);
+}
+</code></pre>
+<p>Now that the code fix is registered we can implement the <code>GetTransformedDocumentAsync</code> method to get a new document that represents the fixed code. To start, we can simply find the node in the document and replace it with a blank node.</p>
+<pre><code>private static async Task&lt;Document&gt; GetTransformedDocumentAsync(Document document, Diagnostic diagnostic, CancellationToken cancellationToken)
+{
+    var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+    var node = root.FindTrivia(diagnostic.Location.SourceSpan.Start, true);
+
+    var newDoc = document.WithSyntaxRoot(root.ReplaceTrivia(node, new SyntaxTrivia()));
+    return newDoc;
+}
+</code></pre>
+<p>If you run this analyzer as is, it correctly removes the comment node. So, we are done, right? Not exactly. While it removes the comment node, it leaves the blank line there, which you would expect to also go away. You might be tempted to just find the node after the comment and if it is a <code>SyntaxKind.EndOfLineTrivia</code> then remove it. However, if you do this, you will run into scenarios where this doesn't work well. For example if there was content on the same line prior to the empty comment, you don't want to remove the blank line.</p>
+<pre><code>public void Bar()
+{
+    System.Console.WriteLine(""A""); //
+}
+</code></pre>
+<p>If you removed the blank line in this case, the resulting code would be:</p>
+<pre><code>public void Bar()
+{
+    System.Console.WriteLine(""A"");  }
+</code></pre>
+<p>So, when it comes down to it, we need to have a few basic rules in place for determining what to do next.</p>
+<ul>
+<li>We will remove the whitespace prior to the comment node if there is any and there is no trailing content on the same line.</li>
+<li>We will remove an end of line node following the comment node if there is one and there is no leading content on the same line.</li>
+</ul>
+<p>In order to determine if there is leading content, we need to move to the node prior to the list of trivia in which our diagnostic node is contained and see if it is on the same line. The <code>triviaList</code> is calculated by a helper method which combines all of the leading and trailing trivia around the node we care about.</p>
+<pre><code>private static bool TriviaHasLeadingContentOnLine(SyntaxNode root, IReadOnlyList&lt;SyntaxTrivia&gt; triviaList)
+{
+    var nodeBeforeStart = triviaList[0].SpanStart - 1;
+    var nodeBefore = root.FindNode(new Microsoft.CodeAnalysis.Text.TextSpan(nodeBeforeStart, 1));
+
+    if (GetLineSpan(nodeBefore).EndLinePosition.Line == GetLineSpan(triviaList[0]).StartLinePosition.Line)
+    {
+        return true;
+    }
+
+    return false;
+}
+</code></pre>
+<p>To determine if there is trailing content, we do the same, just looking at the node after the last node in the list of trivia.</p>
+<pre><code>private static bool TriviaHasTrailingContentOnLine(SyntaxNode root, IReadOnlyList&lt;SyntaxTrivia&gt; triviaList)
+{
+    var nodeAfterTriviaStart = triviaList[triviaList.Count - 1].SpanStart - 1;
+    var nodeAfterTrivia = root.FindNode(new Microsoft.CodeAnalysis.Text.TextSpan(nodeAfterTriviaStart, 1));
+
+    if (GetLineSpan(nodeAfterTrivia).StartLinePosition.Line == GetLineSpan(triviaList[triviaList.Count - 1]).EndLinePosition.Line)
+    {
+        return true;
+    }
+
+    return false;
+}
+</code></pre>
+<p>Now that we have those helper methods, we can use them inside our <code>GetTransformedDocumentAnsync</code> method and follow the rules we laid out above:</p>
+<pre><code>private static async Task&lt;Document&gt; GetTransformedDocumentAsync(Document document, Diagnostic diagnostic, CancellationToken cancellationToken)
+{
+    var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+    var node = root.FindTrivia(diagnostic.Location.SourceSpan.Start, true);
+
+    int diagnosticIndex = 0;
+    var triviaList = TriviaHelper.GetContainingTriviaList(node, out diagnosticIndex);
+
+    var nodesToRemove = new List&lt;SyntaxTrivia&gt;();
+    nodesToRemove.Add(node);
+
+    // If there is trialing content on the line, we don't want to remove the leading whitespace
+    bool hasTrailingContent = TriviaHasTrailingContentOnLine(root, triviaList);
+
+    if (diagnosticIndex &gt; 0 &amp;&amp; !hasTrailingContent)
+    {
+        var previousStart = triviaList[diagnosticIndex - 1].SpanStart;
+        var previousNode = root.FindTrivia(previousStart, true);
+        nodesToRemove.Add(previousNode);
+    }
+
+    // If there is leading content on the line, then we don't want to remove the trailing end of lines
+    bool hasLeadingContent = TriviaHasLeadingContentOnLine(root, triviaList);
+
+    if (diagnosticIndex &lt; triviaList.Count - 1)
+    {
+        var nextStart = triviaList[diagnosticIndex + 1].SpanStart;
+        var nextNode = root.FindTrivia(nextStart, true);
+
+        if (nextNode.IsKind(SyntaxKind.EndOfLineTrivia) &amp;&amp; !hasLeadingContent)
+        {
+            nodesToRemove.Add(nextNode);
+        }
+    }
+
+    // Replace all roots with an empty node
+    var newRoot = root.ReplaceTrivia(nodesToRemove, (original, rewritten) =&gt;
+    {
+        return new SyntaxTrivia();
+    });
+
+    Document updatedDocument = document.WithSyntaxRoot(newRoot);
+    return updatedDocument;
+}
+</code></pre>
+<p>Notice that we now have a list of nodes that we will remove from the <code>SyntaxRoot</code> and we use the <code>ReplaceTrivia</code> overload that allows us to specify an <code>IEnumerable&lt;SyntaxTrivia&gt;</code>.</p>
+<p>As I mentioned in the previous article about this analyzer, it is diagnostic SA1120 in the <a href="https://github.com/DotNetAnalyzers/StyleCopAnalyzers">StyleCopAnalyzers</a> project. The full code fix is named <a href="https://github.com/DotNetAnalyzers/StyleCopAnalyzers/blob/master/StyleCop.Analyzers/StyleCop.Analyzers/ReadabilityRules/SA1120CodeFixProvider.cs">SA120CodeFixProvider</a>.The exact code sample I worked on here is available in my <a href="https://github.com/johnkoerner/AnalyzerSamples">AnalyzersSamples</a> project on Github under the <a href="https://github.com/johnkoerner/AnalyzerSamples/blob/master/AnalyzerSamples/AnalyzerSamples/Comments/EmptyCommentCodeFix.cs">EmptyCommentsCodeFix</a>.</p>
+<p>Now we have an analyzer and a code fix. What's missing? Unit tests. The next time we delve into this analyzer we will go through how we can unit test this to make sure we are handling all of the cases we want to handle correctly.</p>
+<p><em>Image Credit: <a href="https://flic.kr/p/on9CPb">Mike Mozart</a> via <a href="https://creativecommons.org/licenses/by/2.0/">Creative Commons</a></em></p>

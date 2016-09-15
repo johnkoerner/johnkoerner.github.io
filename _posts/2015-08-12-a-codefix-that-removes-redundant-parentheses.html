@@ -1,0 +1,74 @@
+---
+layout: post
+status: publish
+published: true
+title: A CodeFix That Removes Redundant Parentheses
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1290
+wordpress_url: https://johnkoerner.com/?p=1290
+date: '2015-08-12 04:25:34 -0400'
+date_gmt: '2015-08-12 04:25:34 -0400'
+categories:
+- C#
+- Code Analysis
+- Roslyn
+tags:
+- C#
+- Code Analysis
+- roslyn
+- Visual Studio 2015
+- Code Fix
+---
+<p>I was recently asked how one could remove extra parentheses from a <code>ObjectCreationExpressionSyntax</code> when they are deemed redundant. For example, in the following case, the parentheses after the <code>ProcessStartInfo</code> are redundant:</p>
+<pre><code>var y = new System.Diagnostics.ProcessStartInfo() { FileName = @"C:\blah.txt" };
+</code></pre>
+<p>So the expected result after the code fix would be:</p>
+<pre><code>var y = new System.Diagnostics.ProcessStartInfo { FileName = @"C:\blah.txt" };
+</code></pre>
+<p>To start, we need to create an analyzer that identifies this scenario. Luckily, this is fairly easy. We can start by registering a <code>SyntaxNodeAction</code> for all <code>SyntaxKind.ObjectCreationExpressoin</code> kinds in the code. Inside this code, we will just check for an empty argument list and a non missing initializer:</p>
+<pre><code>public override void Initialize(AnalysisContext context)
+{
+
+    context.RegisterSyntaxNodeAction((syntaxContext) =&gt;
+    {
+        var node = syntaxContext.Node as ObjectCreationExpressionSyntax;
+
+        if (node.ArgumentList.Arguments.Any())
+            return;
+
+
+        if (node.Initializer.IsMissing)
+            return;
+
+        syntaxContext.ReportDiagnostic(Diagnostic.Create(Rule, syntaxContext.Node.GetLocation()));
+    }, SyntaxKind.ObjectCreationExpression);
+}
+</code></pre>
+<p>Now that we have a working analyzer, we can look at the codefix. Luckily the codefix for this analyzer is also very simple. We just need to look for the ArgumentList syntax node and remove that from the document.</p>
+<pre><code>public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+{
+
+    var diagnostic = context.Diagnostics.First();
+    context.RegisterCodeFix(CodeAction.Create("Remove parens", async token =&gt;
+    {
+
+        var document = context.Document;
+        var root = await document.GetSyntaxRootAsync(token);
+
+        var objectCreationNode = root.FindNode(diagnostic.Location.SourceSpan, false) as ObjectCreationExpressionSyntax;
+        // Find the arguments list to remove
+        var nodeToRemove =objectCreationNode.ChildNodes().Where(x =&gt; x.IsKind(SyntaxKind.ArgumentList)).First();
+        var newDoc = document.WithSyntaxRoot(root.RemoveNode(nodeToRemove, SyntaxRemoveOptions.KeepTrailingTrivia));
+        return newDoc;
+    }, RedundantParensAnalyzer.DiagnosticId), diagnostic);
+}
+</code></pre>
+<p>Note that we keep the trailing trivia in this case as that is that pattern that feels right for this code fix.</p>
+<p>That's all there is to it. Now this code fix will properly remove the redundant parentheses whenever a diagnostic is raised.</p>
+<p><em>Image Credit: <a href="https://commons.wikimedia.org/wiki/File:Dental_braces.jpg#/media/File:Dental_braces.jpg">Dental braces</a> by Originally uploaded by <a href="//en.wikipedia.org/wiki/User:Sputnikcccp" class="extiw" title="en:User:Sputnikcccp">Sputnikcccp</a> (Transferred by <a href="//commons.wikimedia.org/w/index.php?title=User:Vinne2&action=edit&redlink=1" class="new" title="User:Vinne2 (page does not exist)">Vinne2</a>) - Originally uploaded on en.wikipedia. Licensed under <a href="http://creativecommons.org/licenses/by-sa/3.0/" title="Creative Commons Attribution-Share Alike 3.0">CC BY-SA 3.0</a> via <a href="https://commons.wikimedia.org/wiki/">Wikimedia Commons</a></em></p>

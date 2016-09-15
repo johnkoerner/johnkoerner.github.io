@@ -1,0 +1,84 @@
+---
+layout: post
+status: publish
+published: true
+title: Creating Code Using the Syntax Factory
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1381
+wordpress_url: https://johnkoerner.com/?p=1381
+date: '2015-09-14 02:16:03 -0400'
+date_gmt: '2015-09-14 02:16:03 -0400'
+categories:
+- C#
+- Roslyn
+tags:
+- C#
+- roslyn
+- vs2015
+- Visual Studio 2015
+- Syntax Factory
+---
+<p>There are times when it is necessary to generate code and in Visual Studio 2015, the Roslyn compiler gives you a lot of power to do this.</p>
+<p>Let's say we want to output <code>Console.WriteLine("A");</code>. The easiest way to start on this is to open the <a href="https://johnkoerner.com/csharp/using-the-roslyn-syntax-visualizer/">Syntax Visualizer</a> and see what types of nodes make up the expression that represents our console write line invocation.</p>
+<p><img src="https://johnkoerner.com/wp-content/uploads/2015/09/ConsoleWritelineExpression.png" alt="ConsoleWritelineExpression" width="718" height="405" class="alignnone size-full wp-image-1384" /></p>
+<p>As you can see, it is an <code>ExpressionStatement</code> that contains an <code>InvocationExpression</code>, which in turn contains a <code>SimpleMemberAccessExpression</code> and an <code>ArgumentList</code>.</p>
+<p>Now if you look at the methods available on the <code>Microsoft.CodeAnalysis.CSharp.SyntaxFactory</code>, you will seem methods that can create the nodes we see in the syntax graph. For example, to create the invocation expression, you would use the <code>SyntaxFactory.InvocationExpression</code> method. Very often when people create these methods you will see a lot of methods calls on a single line of code. For example, the <a href="http://roslynquoter.azurewebsites.net/">Roslyn Quoter Project</a> on GitHub, generates the following code to do our <code>Console.WriteLine("A");</code>.</p>
+<pre><code>return SyntaxFactory.ExpressionStatement(
+           SyntaxFactory.InvocationExpression(
+               SyntaxFactory.MemberAccessExpression(
+                   SyntaxKind.SimpleMemberAccessExpression,
+                   SyntaxFactory.IdentifierName(
+                       @"Console"),
+                   SyntaxFactory.IdentifierName(
+                       @"WriteLine"))
+               .WithOperatorToken(
+                   SyntaxFactory.Token(
+                       SyntaxKind.DotToken)))
+           .WithArgumentList(
+               SyntaxFactory.ArgumentList(
+                   SyntaxFactory.SingletonSeparatedList&lt;ArgumentSyntax&gt;(
+                       SyntaxFactory.Argument(
+                           SyntaxFactory.LiteralExpression(
+                               SyntaxKind.StringLiteralExpression,
+                               SyntaxFactory.Literal(
+                                   SyntaxFactory.TriviaList(),
+                                   @"""A""",
+                                   @"""A""",
+                                   SyntaxFactory.TriviaList())))))
+               .WithOpenParenToken(
+                   SyntaxFactory.Token(
+                       SyntaxKind.OpenParenToken))
+               .WithCloseParenToken(
+                   SyntaxFactory.Token(
+                       SyntaxKind.CloseParenToken))));
+</code></pre>
+<p>The code is generated, so it is a little verbose, but it provides us a great starting point to know what work needs to be done. We can refactor that a bit to get something that is more consumable and debuggable:</p>
+<pre><code>static void Main(string[] args)
+{
+    var console = SyntaxFactory.IdentifierName("Console");
+    var writeline = SyntaxFactory.IdentifierName("WriteLine");
+    var memberaccess = SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, console, writeline);
+
+    var argument = SyntaxFactory.Argument(SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal("A")));
+    var argumentList = SyntaxFactory.SeparatedList(new[] { argument });
+
+    var writeLineCall =
+        SyntaxFactory.ExpressionStatement(
+        SyntaxFactory.InvocationExpression(memberaccess,
+        SyntaxFactory.ArgumentList(argumentList)));
+
+    var text = writeLineCall.ToFullString();
+
+    Console.WriteLine(text);
+    Console.ReadKey();
+}
+</code></pre>
+<p>If you look at the syntax tree image, you'll see that we are just going to build up the syntax nodes (in blue in the tree) from the bottom up. The first two lines are simply creating variables to hold the <code>IdentifierName</code> syntax nodes in the tree. Next, we create the <code>SimpleMemberAccessExpression</code> and pass it the two identifiers. Next we create an <code>Argument</code> with a <code>Literal</code> of <code>"A"</code>. We wrap that in a list that we can later pass to the <code>SyntaxFactory.ArgumentList</code>. Finally we use all of the nodes we created previously to build up the complete syntax tree, by calling the appropriate methods on the <code>SyntaxFactory</code>.</p>
+<p>You are now armed with the power of creating code using Roslyn's Syntax Factory. Use it wisely (and sparingly). Special thanks to <a href="https://twitter.com/KirillOsenkov">Kirill Osenkov</a> for creating the Roslyn Quoter project and making it available. That tools is invaluable when getting started using the SyntaxFactory.</p>
+<p>*Image Credit : <a href="https://flic.kr/p/jXkSpu">Thawt Hawthje</a> via <a href="https://creativecommons.org/licenses/by/2.0/">Creative Commons</a></p>

@@ -1,0 +1,41 @@
+---
+layout: post
+status: publish
+published: true
+title: How I Became a Security Researcher
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 950
+wordpress_url: http://johnkoerner.com/?p=950
+date: '2014-12-16 04:35:32 -0500'
+date_gmt: '2014-12-16 04:35:32 -0500'
+categories:
+- Security
+tags: []
+---
+<p>To be clear, I don't consider myself a security researcher, rather I am a programmer who happens to dabble in security research. Maybe this is a little bit of <a href="http://www.hanselman.com/blog/ImAPhonyAreYou.aspx">imposter syndrome</a> kicking in, but I really think I just know enough to be dangerous.</p>
+<p>A few months back I learned of the <a href="http://technet.microsoft.com/en-us/library/dn800983.aspx">Online Services Bug Bounty</a> program Microsoft was offering. I decided to give it a go. I am always looking for authorized hacking opportunities and really wasn't expecting anything to come of it. I created my test tenants and started playing around. I decided to focus on XSS vulnerabilities, as that is something I am pretty comfortable with and is pretty easy to test client side. Whenever I have tested for XSS vulnerabilities, I have always found that dialog windows tend to be some of the biggest culprits, so I honed in on those in my test tenant.</p>
+<p>Eventually I stumbled across an OWA dialog that wasn't escaping strings. I was easily able to generate this (URLs hidden to protect the innocent):</p>
+<p><img alt='' class='alignnone size-full wp-image-959' src='https://johnkoerner.com/wp-content/uploads/2014/12/img_548fac4a5d9a0.png' /></p>
+<p>And then with a little more tweaking, this:</p>
+<p><img alt='' class='alignnone size-full wp-image-961' src='https://johnkoerner.com/wp-content/uploads/2014/12/img_548facce4903c.png' /></p>
+<p>It was clear I had found an XSS vulnerability. I followed the submission instructions on the bug bounty page and waited to hear back. Within a few days, I got an email from the Microsoft security team indicating they had forwarded the bug to the product team. About a week after that I received confirmation that the product team had reproduced the bug and were working on a fix. Here is the timeline for the fix:</p>
+<pre><code>Oct. 9 (Thursday)   - Reported Bug
+Oct. 13 (Monday)    - Microsoft confirmed receipt of bug 
+Oct. 21 (Tuesday)   - Product team confirms repro of bug
+Oct. 29 (Wednesday) - Product team confirmed that bug exists in boxed products
+Dec. 9 (Tuesday)    - Official security bulletin released.
+</code></pre>
+<p>Since this bug impacted user installed versions of exchange, it took a bit longer for the product team to fix. I didn't continuously test the online URL to know exactly when it was fixed, but I know as of today the vulnerability is fixed.</p>
+<p>The bulletin for the bug is <a href="https://technet.microsoft.com/library/security/ms14-075">MS14-075</a>.</p>
+<p>The Microsoft team has credited me for this fix in multiple locations:</p>
+<ul>
+<li><a href="http://technet.microsoft.com/en-us/library/dn469163.aspx">Bounty Hunters Credit</a></li>
+<li><a href="http://technet.microsoft.com/en-us/security/cc308575">Online Researchers Credit</a></li>
+<li><a href="https://technet.microsoft.com/library/security/dn820091.aspx">Security Bulletin Credit</a></li>
+</ul>

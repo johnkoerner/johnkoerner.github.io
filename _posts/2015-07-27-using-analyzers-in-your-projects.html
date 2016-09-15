@@ -1,0 +1,98 @@
+---
+layout: post
+status: publish
+published: true
+title: Using Analyzers in Your Projects
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1220
+wordpress_url: https://johnkoerner.com/?p=1220
+date: '2015-07-27 17:42:48 -0400'
+date_gmt: '2015-07-27 17:42:48 -0400'
+categories:
+- C#
+- Code Analysis
+- Roslyn
+tags:
+- C#
+- Code Analysis
+---
+<p>While many of my posts cover the basics of creating analyzers and digging into the syntax, this post is going to focus on how to add existing analyzers to your projects. There has already been a great deal of work done by many people to create a wide array of analyzers and you should take advantage of those on top of creating your own analyzers.</p>
+<p>The easiest way to add analyzers to your project is to obtain them via Nuget. A few popular analyzers include the Microsoft.AnalyzerPowerPack and <a href="https://github.com/DotNetAnalyzers/StyleCopAnalyzers">StyleCop.Analyzers</a>. Simply open up the Nuget package manager and search for the analyzer that you want to install.</p>
+<p><a href="https://johnkoerner.com/wp-content/uploads/2015/07/NugetPackageManager.png"><img src="https://johnkoerner.com/wp-content/uploads/2015/07/NugetPackageManager.png" alt="NugetPackageManager" width="814" height="517" class="alignnone size-full wp-image-1221" /></a></p>
+<p>Once installed, you will see the default settings that the analyzer developer decided upon for severity of the violation. Your code may end up looking something like this:</p>
+<p><a href="https://johnkoerner.com/wp-content/uploads/2015/07/AnalyzerIssues.png"><img src="https://johnkoerner.com/wp-content/uploads/2015/07/AnalyzerIssues.png" alt="AnalyzerIssues" width="388" height="325" class="alignnone size-full wp-image-1223" /></a></p>
+<p>Luckily, you have full control over each and every analyzer that is provided to you and you can decide what should be reported and the severity of the violation. Under your project references, you will see a new node named <code>Analyzers</code>.</p>
+<p><a href="https://johnkoerner.com/wp-content/uploads/2015/07/ProjectHierarchy.png"><img src="https://johnkoerner.com/wp-content/uploads/2015/07/ProjectHierarchy.png" alt="ProjectHierarchy" width="285" height="147" class="alignnone size-full wp-image-1224" /></a></p>
+<p>You can right click on this node and select the <code>Open Active Rule Set</code> option. This will bring up a dialog that lets you configure the rules.</p>
+<p><a href="https://johnkoerner.com/wp-content/uploads/2015/07/RulesetWindow.png"><img src="https://johnkoerner.com/wp-content/uploads/2015/07/RulesetWindow.png" alt="RulesetWindow" width="814" height="536" class="alignnone size-full wp-image-1225" /></a></p>
+<p>You'll notice an information bar at the top indicating that you are viewing the default ruleset. If you make any modifications, then it those changes will be persisted to a new file named <code>&lt;projectname&gt;.ruleset</code>. From this window, you can change the behavior of rules. You have the following options for each rule:</p>
+<table>
+<thead>
+<tr>
+<th>
+        Value
+      </th>
+<th>
+        Definition
+      </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+        Warning
+      </td>
+<td>
+        Will appear as a warning in the Visual Studio Error List window.
+      </td>
+</tr>
+<tr>
+<td>
+        Error
+      </td>
+<td>
+        Will appear as an error in the Visual Studio Error List window.
+      </td>
+</tr>
+<tr>
+<td>
+        Info
+      </td>
+<td>
+        Will appear as an information message in the Visual Studio Error List window.
+      </td>
+</tr>
+<tr>
+<td>
+        Hidden
+      </td>
+<td>
+        Analysis is still performed, but it is not reported by any Visual Studio UI. A custom UI could be created to report these diagnostics.
+      </td>
+</tr>
+<tr>
+<td>
+        None
+      </td>
+<td>
+        The rule is disabled and the diagnostic will not be run against your code.
+      </td>
+</tr>
+<tr>
+<td>
+        Inherit
+      </td>
+<td>
+        This will inherit the behavior from the rule group. There is currently no UI to set this.
+      </td>
+</tr>
+</tbody>
+</table>
+<p>I recommend getting as many analyzers as you can get your hands on to see what value they add. After you see what analyzers are available, you can trim back the analyzers you use to match your business needs. If you have a favorite analyzer that you think other developers needs to know about, leave a comment below.</p>
+<p><em>Image Credit: <a href="https://www.flickr.com/photos/practicalowl/1185217331/in/photolist-2NJxPz-6DobSF-5Qjix-5Da371-jyok9h-hH54JL-fQ6CnH-btCAxD-6Nnwy1-btCADk-8PCJ8C-4gjQW9-4UokrH-76mFYr-2N6JPc-7pwLUN-en62JV-dMoKLk-rfYQd-qzDvGU-6enrqz-8peEVM-kZdx3-fMHjtX-buFeJ2-i2C8g-7fRqZP-856FtU-a4yhRQ-7G1x5R-bb4bna-5mP1to-bs35vg-9V3xEP-67HD4M-aF4x59-9VATSc-4AVvYp-aPfTo4-9VAVRg-4yzkGK-6pLxY2-525PwA-9VAZsD-8f3rrF-5mtkLS-7psUzM-bqp3aZ-adZmEd-aDMSk2/">Kit</a> using <a href="https://creativecommons.org/licenses/by-nc/2.0/">Creative Commons License</a></em></p>

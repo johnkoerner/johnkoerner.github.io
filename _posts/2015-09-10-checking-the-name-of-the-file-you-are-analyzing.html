@@ -1,0 +1,66 @@
+---
+layout: post
+status: publish
+published: true
+title: Checking the Name of the File You are Analyzing
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1376
+wordpress_url: https://johnkoerner.com/?p=1376
+date: '2015-09-10 01:34:22 -0400'
+date_gmt: '2015-09-10 01:34:22 -0400'
+categories:
+- C#
+- Code Analysis
+- Roslyn
+tags:
+- C#
+- Code Analysis
+- roslyn
+- vs2015
+- Visual Studio 2015
+---
+<p>There are times when writing an analyzer that you may also want to get information about the file that contains some code you are analyzing. This information is available from Roslyn in the <code>SyntaxTree</code> and provides access to things like the file encoding and the file name.</p>
+<p>Lets say we wanted to create an analyzer that ensured all of the compilable files in our solution had file names that started with an uppercase letter. To do this, we would first register a <code>SyntaxTreeAction</code>:</p>
+<pre><code>context.RegisterSyntaxTreeAction((syntaxTreeContext) =&gt;
+{
+});
+</code></pre>
+<p>Inside that action, we will get the file path and ensure it is not null. It could be null for a few reasons, mainly when dynamically compiling snippets of code, so we will just guard against that:</p>
+<pre><code>var filePath = syntaxTreeContext.Tree.FilePath;
+
+if (filePath == null)
+    return;
+</code></pre>
+<p>Next, we can use the System.IO.Path class to just get the filename and check if the first character is a lowercase letter. If it is a lowercase letter, then we will raise a diagnostic:</p>
+<pre><code>var fileName = System.IO.Path.GetFileNameWithoutExtension(filePath);
+
+if (Char.IsLower(fileName.ToCharArray()[0]))
+    syntaxTreeContext.ReportDiagnostic(Diagnostic.Create(Rule,
+           Location.Create(syntaxTreeContext.Tree, TextSpan.FromBounds(0, 0)), fileName));
+</code></pre>
+<p>So, at the end, our diagnostic looks like this:</p>
+<pre><code>public override void Initialize(AnalysisContext context)
+{
+    context.RegisterSyntaxTreeAction((syntaxTreeContext) =&gt;
+    {
+        var filePath = syntaxTreeContext.Tree.FilePath;
+
+        if (filePath == null)
+            return;
+
+        var fileName = System.IO.Path.GetFileNameWithoutExtension(filePath);
+
+        if (Char.IsLower(fileName.ToCharArray()[0]))
+            syntaxTreeContext.ReportDiagnostic(Diagnostic.Create(Rule, 
+                Location.Create(syntaxTreeContext.Tree, TextSpan.FromBounds(0, 0)), fileName));
+    });
+}
+</code></pre>
+<p>Those are the basics for accessing file information from an analyzer. If you want to see an example of an analyzer that looks at the encoding of the file, you can look at <a href="https://github.com/DotNetAnalyzers/StyleCopAnalyzers/blob/master/StyleCop.Analyzers/StyleCop.Analyzers/MaintainabilityRules/SA1412StoreFilesAsUtf8.cs">SA1412StoreFilesAsUtf8</a> in the <a href="https://github.com/DotNetAnalyzers/StyleCopAnalyzers">StyleCopAnalyzers</a> GitHub project.</p>
+<p><em>Image Credit: <a href="https://en.wikipedia.org/wiki/Photograph_conservator#/media/File:Fondos_archivo.jpg">Archivo-FSP</a> via <a href="http://creativecommons.org/licenses/by-sa/3.0">Creative Commons</a></em></p>

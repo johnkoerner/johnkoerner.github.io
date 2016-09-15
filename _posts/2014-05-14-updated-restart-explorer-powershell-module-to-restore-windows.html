@@ -1,0 +1,65 @@
+---
+layout: post
+status: publish
+published: true
+title: Updated Restart Explorer PowerShell Module to Restore Windows
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 891
+wordpress_url: http://johnkoerner.com/?p=891
+date: '2014-05-14 21:14:41 -0400'
+date_gmt: '2014-05-14 21:14:41 -0400'
+categories:
+- PowerShell
+tags: []
+---
+<p>Yesterday I <a href="http://johnkoerner.com/powershell/creating-a-powershell-module-to-restart-explorer-exe/">posted</a> a simple PowerShell to restart explorer.  I have continued to tinker with it and gave it the ability to find the currently open explorer windows and re-open those after it restarts explorer.</p>
+<pre><code>function Restart-Explorer
+{
+    Param([switch] $SuppressReOpen)
+
+    #Gather up the currently open windows, so we can re-spawn them.
+    $x = New-Object -ComObject "Shell.Application"
+    $count = $x.Windows().Count
+    $windows = @();
+    $explorerPath = [System.IO.Path]::Combine($env:windir, "explorer.exe");
+    for ($i=0; $i -lt $count; $i++)
+    {
+        # The location URL contains the Path that the explorer window is currently open to
+        $url = $x.Windows().Item($i).LocationURL;
+
+        $fullName = $x.Windows().Item($i).FullName;
+
+        # This also catches IE windows, so I only add items where the full name is %WINDIR%\explorer.exe 
+        if ($fullName.Equals($explorerPath))
+        {
+            $windows += $url
+        }
+    }
+
+    Stop-Process -ProcessName explorer
+
+    if (!$SuppressReOpen)
+    {
+        foreach ($window In $windows){
+
+            if ([string]::IsNullOrEmpty($window)){
+                Start-Process $explorerPath
+            }
+            else
+            {
+                Start-Process $window
+            }
+        }
+    }
+}
+
+Set-Alias re Restart-Explorer
+Export-ModuleMember -function Restart-Explorer -Alias re
+</code></pre>
+<p>So now when I run <code>re</code>, explorer restarts and my explorer windows are restored.  If for some reason I didn't want to restore the windows I added a SuppressReOpen switch to prevent the script from re-opening explorer windows.</p>

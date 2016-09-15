@@ -1,0 +1,97 @@
+---
+layout: post
+status: publish
+published: true
+title: An Analyzer That Checks Your Async Methods
+author:
+  display_name: John Koerner
+  login: admin
+  email: blog@johnkoerner.net
+  url: ''
+author_login: admin
+author_email: blog@johnkoerner.net
+wordpress_id: 1169
+wordpress_url: https://johnkoerner.com/?p=1169
+date: '2015-07-09 02:47:35 -0400'
+date_gmt: '2015-07-09 02:47:35 -0400'
+categories:
+- C#
+- Code Analysis
+- Roslyn
+tags: []
+---
+<p>If you have worked with code analysis tools that analyzed .net code prior to Visual Studio 2015, you know that they sometimes struggled with the <code>async</code> and <code>await</code> keywords. This is because many of the tools worked with the IL generated from your build and struggled with the <a href="http://www.codeproject.com/Articles/535635/Async-Await-and-the-Generated-StateMachine">state machine</a> that is created for Async code. Now that Roslyn analyzers work with the source code instead of the IL, <code>async</code> and <code>await</code> are first class citizens. For example, you could easily write an analyzer to ensure that all <code>async</code> methods contain a suffix of "Async".</p>
+<pre><code>[DiagnosticAnalyzer(LanguageNames.CSharp)]
+public class AsyncMethodNameAnalyzer : DiagnosticAnalyzer
+{
+    public const string DiagnosticId = "AsyncMethodNameAnalyzer";
+    internal static readonly LocalizableString Title = "Async method names must end with Async";
+    internal static readonly LocalizableString MessageFormat = "'{0}' does not end with Async";
+    internal const string Category = "AsyncAnalyzer Category";
+
+    internal static DiagnosticDescriptor Rule = new DiagnosticDescriptor(DiagnosticId, Title, MessageFormat, Category, DiagnosticSeverity.Warning, true);
+
+    public override ImmutableArray&lt;DiagnosticDescriptor&gt; SupportedDiagnostics { get { return ImmutableArray.Create(Rule); } }
+
+    public override void Initialize(AnalysisContext context)
+    {
+        context.RegisterSymbolAction(AsyncMethodValidator, SymbolKind.Method);
+    }
+
+    private static void AsyncMethodValidator(SymbolAnalysisContext context)
+    {
+        var methodSymbol = context.Symbol as IMethodSymbol;
+        if (methodSymbol.IsAsync &amp;&amp; !methodSymbol.Name.EndsWith("Async"))
+        {
+            foreach (var location in methodSymbol.Locations)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(Rule, location, methodSymbol.Name));
+            }
+        }
+    }
+}
+</code></pre>
+<p>As you can see, in the <code>AsyncMethodValidator</code> method, I can simply check the <code>IsAsync</code> property on the method symbol to determine if a method is <code>async</code>. So if you wrote code like the code below, you would receive a diagnostic:</p>
+<pre><code>private async Task DoStuff()
+{
+    await Task.Delay(500);
+}
+</code></pre>
+<p>I could also write an analyzer to verify that any method that contains the "Async" suffix is actually an <code>async</code> method. The logic for this is just the inverse for the logic for the <code>AsyncMethodNameAnalyzer</code>:</p>
+<pre><code>[DiagnosticAnalyzer(LanguageNames.CSharp)]
+public class DontLieAboutAsyncAnalyzer : DiagnosticAnalyzer
+{
+    public const string DiagnosticId = "DontLieAboutAsyncAnalyzer";
+    internal static readonly LocalizableString Title = "Don't lie about being async.";
+    internal static readonly LocalizableString MessageFormat = "'{0}' ends with Async, but is not an async method";
+    internal const string Category = "DontLieAboutAsyncAnalyzer Category";
+
+    internal static DiagnosticDescriptor Rule = new DiagnosticDescriptor(DiagnosticId, Title, MessageFormat, Category, DiagnosticSeverity.Warning, true);
+
+    public override ImmutableArray&lt;DiagnosticDescriptor&gt; SupportedDiagnostics { get { return ImmutableArray.Create(Rule); } }
+    public override void Initialize(AnalysisContext context)
+    {
+        context.RegisterSymbolAction(AsyncMethodValidator, SymbolKind.Method);
+    }
+
+    private static void AsyncMethodValidator(SymbolAnalysisContext context)
+    {
+        var methodSymbol = context.Symbol as IMethodSymbol;
+        if (!methodSymbol.IsAsync &amp;&amp; methodSymbol.Name.EndsWith("Async"))
+        {
+            foreach (var location in methodSymbol.Locations)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(Rule, location, methodSymbol.Name));
+            }
+        }
+    }
+}
+</code></pre>
+<p>Now, if you write code where a method ends in "Async", but it is not <code>async</code>, you will get a diagnostic. For example, the code below will raise a diagnostic:</p>
+<pre><code>private void DoStuffAsync()
+{
+
+}
+</code></pre>
+<p>Now that the analyzers have access to the source code instead of the IL, it makes working with language features that generate complex IL much easier. As you can see, creating a diagnostic that works with code that leverages <code>async</code> and <code>await</code> is not to different than code that works with any other method in your code.</p>
+<p><em>Image Credit: <a href="https://flic.kr/p/tJFYQ5">Pawel Pacholec</a> via <a href="https://creativecommons.org/licenses/by/2.0/">Creative Commons</a></em></p>
