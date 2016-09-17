@@ -1,7 +1,7 @@
 title: Fun With Visual Studio
 email: blog@johnkoerner.com
 description: > # Having fun hacking on Visual Studio and its related tooling.
-url: "http://johnkoerner.github.io" # the base hostname & protocol for your site
+url: "https://johnkoerner.com" # the base hostname & protocol for your site
 twitter_username: johnkoerner
 github_username:  johnkoerner
 
@@ -10,7 +10,7 @@ markdown: kramdown
 theme: minima
 permalink:     /:categories/:title/
 
-disqus: johnkoernerblog
+disqus: johnkoernersblog
 google_analytics_ua: UA-55411926-1
 
 exclude:
