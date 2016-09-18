@@ -4,7 +4,7 @@ description: > # Having fun hacking on Visual Studio and its related tooling.
 url: "https://johnkoerner.com" # the base hostname & protocol for your site
 twitter_username: johnkoerner
 github_username:  johnkoerner
-
+stackoverflow_link: users/573218/john-koerner
 # Build settings
 markdown: kramdown
 theme: minima

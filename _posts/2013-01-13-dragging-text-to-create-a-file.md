@@ -16,8 +16,10 @@ tags:
 - csharp
 - DragDrop
 ---
-<p>There was a recent <a href="http://stackoverflow.com/q/14293908/573218">question</a> on StackOverflow asking how to drag content from a rich text box and drop it into windows explorer to create a file. I did some digging and found that this was surprisingly easy to do. The thing to understand is that Explorer drag and drop expects the file to exist. So the solution I came up with was when the mouse leaves the RTB, if the left button is down, we save a temporary file and then setup the drag and drop.</p>
-<pre><code>private void richTextBox1_MouseLeave(object sender, EventArgs e)
+There was a recent [question](http://stackoverflow.com/q/14293908/573218) on StackOverflow asking how to drag content from a rich text box and drop it into windows explorer to create a file. I did some digging and found that this was surprisingly easy to do. The thing to understand is that Explorer drag and drop expects the file to exist. So the solution I came up with was when the mouse leaves the RTB, if the left button is down, we save a temporary file and then setup the drag and drop.
+
+{%highlight csharp %}
+private void richTextBox1_MouseLeave(object sender, EventArgs e)
 {
     // If the left mouse button is down when leaving the rtb
     if (MouseButtons == MouseButtons.Left)
@@ -32,4 +34,4 @@ tags:
         DoDragDrop(obj, DragDropEffects.All);
     }
 }
-</code></pre>
+{% endhighlight %}
