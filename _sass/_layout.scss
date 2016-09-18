@@ -255,7 +255,7 @@
         border-collapse: collapse; 
     }
     tr:nth-child(even) td { 
-        background: #aaaaaa;; 
+        background: #2c2c2c;; 
     }
     img { 
         width: 48px; 
@@ -291,6 +291,10 @@
     }
     .copyright {
         font-size: 14px;
+    }
+
+    .thanks {
+        font-size: 12px;
     }
 
     @include media-query($on-small) {
