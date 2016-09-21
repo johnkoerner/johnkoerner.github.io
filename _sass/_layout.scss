@@ -244,6 +244,14 @@
     .note {
         color: $grey-color-med-light;
     }
+        table, th, td { 
+            background: #222222;
+        border-collapse: collapse; 
+        border: 1px solid white;
+    }
+    pre {
+            background: #222222;
+    }
 }
 
 /**
@@ -253,6 +261,7 @@
     table { 
         width: 100%; 
         border-collapse: collapse; 
+        border: 1px solid white;
     }
     tr:nth-child(even) td { 
         background: #2c2c2c;; 
