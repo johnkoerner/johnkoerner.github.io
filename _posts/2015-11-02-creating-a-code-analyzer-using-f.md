@@ -15,7 +15,7 @@ wordpress_url: https://johnkoerner.com/?p=1458
 date: '2015-11-02 04:39:05 -0500'
 date_gmt: '2015-11-02 04:39:05 -0500'
 categories:
-- Code Analysis
+- Code-Analysis
 tags:
 - C#
 - Code Analysis
