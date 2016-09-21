@@ -42,7 +42,7 @@ public async Task TestMethod7()
 &lt;/RunSettings&gt;
 </code></pre>
 <p>Finally, I selected my run settings file from the Test Settings Menu:</p>
-<p><img src="https://johnkoerner.com/wp-content/uploads/2015/12/SelectTestSettings.png" alt="SelectTestSettings" width="546" height="225" class="alignnone size-full wp-image-1502" /></p>
+<p><img src="/content/SelectTestSettings.png" alt="SelectTestSettings" width="546" height="225" class="alignnone size-full wp-image-1502" /></p>
 <p>I ran it and all of my tests still ran in serial. I thought maybe I had done something wrong or perhaps hit a bug with the new feature, so I returned to the update 1 announcement and found my answer. It states:</p>
 <blockquote>
 <p>Parallel test execution leverages the available cores on the machine, and is realized by launching the test execution engine on each available core as a distinct process, and <strong>handing it a container (assembly, DLL, or relevant artifact containing the tests to execute)</strong>, worth of tests to execute.</p>
@@ -50,4 +50,3 @@ public async Task TestMethod7()
 <p>The separate container bit is the piece I was missing. In order to get my tests to run in parallel, I needed to split up my tests into separate test assemblies. After doing that, I saw that the tests in different assemblies were running in parallel.</p>
 <p>The distinction of tests running in parallel across assemblies is a subtle point that may cause confusion if you think just setting the MaxCpuCount in a run settings file is going to give you benefit on a single test assembly. Overall, I am glad to see that Microsoft is still improving MSTest and hopefully they continue to add features that will allow us to better parallelize our testing.</p>
 <p><strong>Update (2016-06-15)</strong> - I create a sample set of tests on <a href="https://github.com/johnkoerner/VS2015ParallelUnitTests">GitHub</a> to better demonstrate this functionality.</p>
-<p><em>Image Credit: <a href="https://www.flickr.com/photos/albertogp123/5843577306">Alberto G.</a> via <a href="https://creativecommons.org/licenses/by/2.0/">Creative Commons</a></em></p>

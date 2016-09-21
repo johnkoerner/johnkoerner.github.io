@@ -25,7 +25,7 @@ tags:
 - Unit Tests
 ---
 <p>If you take a quick glance at the Test Explorer window in Visual Studio 2015, you might not notice all of the power that you have in that little window. To start, there is a grouping icon, that allows you to group your tests by various properties. The grouping is a great way to get common tests together so you can easily select them and run them in test explorer.</p>
-<p><img src="https://johnkoerner.com/wp-content/uploads/2016/01/TestExplorerGroupBy.png" alt="TestExplorerGroupBy" width="398" height="55" class="alignnone size-full wp-image-1549" /></p>
+<p><img src="/content/TestExplorerGroupBy.png" alt="TestExplorerGroupBy" width="398" height="55" class="alignnone size-full wp-image-1549" /></p>
 <p>You have the option to group by:</p>
 <table>
 <thead>
@@ -137,14 +137,13 @@ public async Task TestMethodDALUnit2()
 public async Task TestMethodADALIntegration()
 </code></pre>
 <p>If I group by trait and don't filter anything, then I'll see the following tests:</p>
-<p><img src="https://johnkoerner.com/wp-content/uploads/2016/01/TestExplorerGroupedByTrait.png" alt="TestExplorerGroupedByTrait" width="220" height="248" class="alignnone size-full wp-image-1561" /></p>
+<p><img src="/content/TestExplorerGroupedByTrait.png" alt="TestExplorerGroupedByTrait" width="220" height="248" class="alignnone size-full wp-image-1561" /></p>
 <p>Next, I could filter the tests by specifying I only want tests with the Unit trait. The search term would be <code>Trait:"Unit"</code>:</p>
-<p><img src="https://johnkoerner.com/wp-content/uploads/2016/01/TestExplorerUnitTestsOnly.png" alt="TestExplorerUnitTestsOnly" width="177" height="152" class="alignnone size-full wp-image-1563" /></p>
+<p><img src="/content/TestExplorerUnitTestsOnly.png" alt="TestExplorerUnitTestsOnly" width="177" height="152" class="alignnone size-full wp-image-1563" /></p>
 <p>I can also filter to only show tests that are both DAL and Unit tests by using the search term <code>Trait:"Unit" Trait:"DAL"</code>:</p>
-<p><img src="https://johnkoerner.com/wp-content/uploads/2016/01/TestExplorerUnitAndDAL.png" alt="TestExplorerUnitAndDAL" width="182" height="128" class="alignnone size-full wp-image-1564" /></p>
+<p><img src="/content/TestExplorerUnitAndDAL.png" alt="TestExplorerUnitAndDAL" width="182" height="128" class="alignnone size-full wp-image-1564" /></p>
 <p>If I want to exclude tests with a given attribute, I could exclude all DAL tests by using the minus symbol, so my search term would be <code>Trait:"Unit" -Trait:"DAL"</code>:</p>
-<p><img src="https://johnkoerner.com/wp-content/uploads/2016/01/TestExplorerUnitNotDAL.png" alt="TestExplorerUnitNotDAL" width="176" height="52" class="alignnone size-full wp-image-1565" /></p>
+<p><img src="/content/TestExplorerUnitNotDAL.png" alt="TestExplorerUnitNotDAL" width="176" height="52" class="alignnone size-full wp-image-1565" /></p>
 <p>You can also pair this with other searchable attributes on the tests. So, after a test run, if I want to find all unit tests that failed, I could use the search term <code>Trait:"Unit" Outcome:"Failed"</code>:</p>
-<p><img src="https://johnkoerner.com/wp-content/uploads/2016/01/TestExplorerFailedUnitTests.png" alt="TestExplorerFailedUnitTests" width="152" height="52" class="alignnone size-full wp-image-1566" /></p>
+<p><img src="/content/TestExplorerFailedUnitTests.png" alt="TestExplorerFailedUnitTests" width="152" height="52" class="alignnone size-full wp-image-1566" /></p>
 <p>As you can see, the grouping and filtering available to you in the Test Explorer window is pretty robust; it just takes a little time to dig into it and learn the syntax. The <a href="https://msdn.microsoft.com/en-us/library/hh270865.aspx">Run unit tests with Test Explorer</a> article on MSDN gives a lot of good information on this topic and is a worthwhile read if you are using this window in your day to day work. Thanks to William Custode for asking a <a href="http://stackoverflow.com/q/34977694/573218">question</a> on StackOverflow that gave me inspiration for this blog post.</p>
-<p><em>Image Credit: <a href="https://www.flickr.com/photos/albertogp123/5843577306">Alberto G.</a> via <a href="https://creativecommons.org/licenses/by/2.0/">Creative Commons</a></em></p>
