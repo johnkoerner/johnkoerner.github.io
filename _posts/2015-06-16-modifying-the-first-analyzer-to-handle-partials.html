@@ -15,10 +15,10 @@ wordpress_url: https://johnkoerner.com/?p=1088
 date: '2015-06-16 00:19:08 -0400'
 date_gmt: '2015-06-16 00:19:08 -0400'
 categories:
-- C#
+- csharp
+tags:
 - Code Analysis
 - Roslyn
-tags: []
 ---
 <p><a href="https://johnkoerner.com/csharp/creating-your-first-code-analyzer/">Last time</a> we talked about the basics of creating an analyzer. Now that we have some working code, let's tweak it a bit. We're going start by fixing a small issue with the default code to update it to handle partial classes.</p>
 <p>Let's look for a minute at how our current analyzer handles partial classes. I created a file with the partial class <code>Foo</code> declared multiple times. As you see, it only reports the diagnostic on one of the two declared instances.</p>

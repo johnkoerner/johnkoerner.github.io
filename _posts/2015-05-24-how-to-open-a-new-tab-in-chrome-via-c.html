@@ -15,7 +15,7 @@ wordpress_url: https://johnkoerner.com/?p=1045
 date: '2015-05-24 01:09:50 -0400'
 date_gmt: '2015-05-24 01:09:50 -0400'
 categories:
-- C#
+- csharp
 tags: []
 ---
 <p>Usually sending keystrokes to another application is a relatively straightforward operation. You find the process, get the main window handle and then send the keys. For chrome, this is a little more tricky, as activating the main window doesn't get you in the correct state to send the keys. After doing some digging, I found <a href="http://stackoverflow.com/a/21903834/573218">this question</a> on stackoverflow. Basically, you need to find the <code>Chrome_WidgetWin_1</code> window and take the window immediately following that window. Activate that window and then you can send the keys to properly open a new window in Chrome. The code for this is:</p>
