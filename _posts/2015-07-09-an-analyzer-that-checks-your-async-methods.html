@@ -15,10 +15,10 @@ wordpress_url: https://johnkoerner.com/?p=1169
 date: '2015-07-09 02:47:35 -0400'
 date_gmt: '2015-07-09 02:47:35 -0400'
 categories:
-- C#
+- csharp
+tags:
 - Code Analysis
 - Roslyn
-tags: []
 ---
 <p>If you have worked with code analysis tools that analyzed .net code prior to Visual Studio 2015, you know that they sometimes struggled with the <code>async</code> and <code>await</code> keywords. This is because many of the tools worked with the IL generated from your build and struggled with the <a href="http://www.codeproject.com/Articles/535635/Async-Await-and-the-Generated-StateMachine">state machine</a> that is created for Async code. Now that Roslyn analyzers work with the source code instead of the IL, <code>async</code> and <code>await</code> are first class citizens. For example, you could easily write an analyzer to ensure that all <code>async</code> methods contain a suffix of "Async".</p>
 <pre><code>[DiagnosticAnalyzer(LanguageNames.CSharp)]

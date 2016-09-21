@@ -15,10 +15,11 @@ wordpress_url: https://johnkoerner.com/?p=1175
 date: '2015-07-12 20:02:33 -0400'
 date_gmt: '2015-07-12 20:02:33 -0400'
 categories:
-- C#
+- csharp
+tags:
+- csharp
 - Code Analysis
 - Roslyn
-tags: []
 ---
 <p>If you want to write an analyzer that checks for certain conditions for a given type, you are going to have to familiarize yourself in working with types in Roslyn. Types returned to you from various Roslyn methods will return to you an object that implements <a href="http://source.roslyn.io/#Microsoft.CodeAnalysis/Symbols/ITypeSymbol.cs"><code>ITypeSymbol</code></a>. This interface has various methods that can provide you with the information you need to make decisions in your analyzer. You can get types for various nodes in the semantic model by using the <code>SemanticModel.GetTypeInfo</code> and then using either the <code>Type</code> or <code>ConvertedType</code> off of the <a href="http://source.roslyn.io/#Microsoft.CodeAnalysis/Compilation/TypeInfo.cs"><code>TypeInfo</code></a> that is returned. The difference between the <code>Type</code> and <code>ConvertedType</code> is that the <code>ConvertedType</code> is the type after any implicit conversions have been applied. If there are no implicit conversions, then <code>Type</code> and <code>ConvertedType</code> are identical.</p>
 <p>There are some types that are special and can be checked by using the <code>SpecialKind</code> enum. For example, if you have an <code>ITypeSymbol</code> and you want to check if it is a string, you could simply do the following.</p>

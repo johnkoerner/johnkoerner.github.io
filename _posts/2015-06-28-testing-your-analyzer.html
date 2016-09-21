@@ -15,11 +15,11 @@ wordpress_url: https://johnkoerner.com/?p=1133
 date: '2015-06-28 03:24:33 -0400'
 date_gmt: '2015-06-28 03:24:33 -0400'
 categories:
-- C#
+- csharp
+tags:
 - Code Analysis
 - Testing
 - Roslyn
-tags: []
 ---
 <p>As we all know, unit tests are a requirement of modern day development and writing unit tests for your analyzers couldn't be easier. There are a lot of helper methods provided by the Roslyn team to get you going, so there is no excuse to not test your analyzer.</p>
 <p>In the <a href="https://johnkoerner.com/csharp/creating-your-first-code-analyzer/">Creating Your First Analyzer</a> post, we discussed how to use the templates to create your first analyzer. When you used the template, one of the projects created is the <code>MyFirstAnalyzer.Test</code> project. If you look at the <code>UnitTests.cs</code> file, you'll notice there are two tests and a couple of methods that are overridden. You'll also notice that this test class derives from the <code>CodeFixVerifier</code> base class. If you only wanted to test your diagnostics, you can simply derive from the <code>DiagnosticVerifier</code> base class.</p>

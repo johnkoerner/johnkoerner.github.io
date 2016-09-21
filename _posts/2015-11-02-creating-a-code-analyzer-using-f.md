@@ -17,11 +17,11 @@ date_gmt: '2015-11-02 04:39:05 -0500'
 categories:
 - Code-Analysis
 tags:
-- C#
+- Csharp
 - Code Analysis
 - roslyn
 - Visual Studio 2015
-- F#
+- Fsharp
 ---
 **Note**: This article covers creating a C#/VB code analyzer using F#. At this time there is no Roslyn support for analyzing F# code.
 
