@@ -25,7 +25,7 @@ tags:
 ---
 <p>There are times when it is necessary to generate code and in Visual Studio 2015, the Roslyn compiler gives you a lot of power to do this.</p>
 <p>Let's say we want to output <code>Console.WriteLine("A");</code>. The easiest way to start on this is to open the <a href="https://johnkoerner.com/csharp/using-the-roslyn-syntax-visualizer/">Syntax Visualizer</a> and see what types of nodes make up the expression that represents our console write line invocation.</p>
-<p><img src="https://johnkoerner.com/wp-content/uploads/2015/09/ConsoleWritelineExpression.png" alt="ConsoleWritelineExpression" width="718" height="405" class="alignnone size-full wp-image-1384" /></p>
+<p><img src="/content/ConsoleWritelineExpression.png" alt="ConsoleWritelineExpression" width="718" height="405" class="alignnone size-full wp-image-1384" /></p>
 <p>As you can see, it is an <code>ExpressionStatement</code> that contains an <code>InvocationExpression</code>, which in turn contains a <code>SimpleMemberAccessExpression</code> and an <code>ArgumentList</code>.</p>
 <p>Now if you look at the methods available on the <code>Microsoft.CodeAnalysis.CSharp.SyntaxFactory</code>, you will seem methods that can create the nodes we see in the syntax graph. For example, to create the invocation expression, you would use the <code>SyntaxFactory.InvocationExpression</code> method. Very often when people create these methods you will see a lot of methods calls on a single line of code. For example, the <a href="http://roslynquoter.azurewebsites.net/">Roslyn Quoter Project</a> on GitHub, generates the following code to do our <code>Console.WriteLine("A");</code>.</p>
 <pre><code>return SyntaxFactory.ExpressionStatement(

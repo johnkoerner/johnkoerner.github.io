@@ -23,9 +23,9 @@ tags:
 ---
 <p>Welcome to the wonderful world of Code Analyzers. With Visual Studio 2015, you now have the ability to create a custom analyzer to provide real time warnings and errors to developers as they code. This type of technology has all sorts of uses. If you are creating a library and want to ensure it is being used properly, you can create an analyzer. If you want to be sure your entire development team is using the same style, you can create analyzers.</p>
 <p>To get started, make sure you have the <a href="https://www.visualstudio.com/en-us/news/vs2015-vs.aspx">release candidate</a> version of Visual Studio 2015. You will also need to install the .Net Compiler Platform SDK Templates from the Visual Studios extensions dialog. It is important to get the templates that match the version of Visual Studio you are using. Since I am using the release candidate, I am getting the RC templates.</p>
-<p><img src="https://johnkoerner.com/wp-content/uploads/2015/06/platformSDKTemplates-e1433904751283.png" alt="Extensions and Updates Dialog with .Net Compiler Platform SDK Templates for RC selected" /></p>
+<p><img src="/content/platformSDKTemplates-e1433904751283.png" alt="Extensions and Updates Dialog with .Net Compiler Platform SDK Templates for RC selected" /></p>
 <p>Now that you have the latest VS and the compiler platform templates, you can create a new analyzer project. The template is available under the <code>Extensibility</code> tab.</p>
-<p><img src="https://johnkoerner.com/wp-content/uploads/2015/06/newproject.png" alt="New Project Dialog with Analyzer template selected" /></p>
+<p><img src="/content/newproject.png" alt="New Project Dialog with Analyzer template selected" /></p>
 <p>Once created, you’ll notice that the solution has 3 projects</p>
 <ul>
 <li>MyFirstAnalyzer (This is actual analyzer)</li>
@@ -34,9 +34,9 @@ tags:
 </ul>
 <p>The MyFirstAnalyzer project already contains a very simple analyzer to get you started. The analyzer simply checks if a symbol contains lower case letters. It also provides a codefix to change the symbol to all uppercase. If you build and run your project, you will see a new instance of Visual Studio start and your analyzer will be loaded. This instance is referred to as an experimental instance. It has its own settings, so you can customize it without affecting your normal day-to-day environment. I recommend using a different theme in this environment, so you can tell them apart.</p>
 <p>In the experimental instance, you can open up an existing project or create a new project. If you browse into a <code>.cs</code> file, you will see that some class names will have a green squiggly line underneath them (provided they contain lowercase letters).</p>
-<p><img src="https://johnkoerner.com/wp-content/uploads/2015/06/Analyzer.png" alt="Code Analyzer dialog with analyzer message" /></p>
+<p><img src="/content/Analyzer.png" alt="Code Analyzer dialog with analyzer message" /></p>
 <p>If you place your cursor on the symbol and hit the Quick Actions key (Default is <code>Ctrl+.</code>), you will see options for fixing this warning. You have the option to fix or suppress the warning. It also provides a nice preview of the operation, so you know how the resulting code will look.</p>
-<p><img src="https://johnkoerner.com/wp-content/uploads/2015/06/CodeFix.png" alt="Code fix window with Make Uppercase code fix shown" /></p>
+<p><img src="/content/CodeFix.png" alt="Code fix window with Make Uppercase code fix shown" /></p>
 <p>Since we have verified that the analyzer works, let's look at the code that is creating all of this magic. Open the <code>DiagnosticAnalyzer.cs</code> file. The start of the file contains code that sets up the analyzer. The important lines here are the <code>Rule</code> of type <code>DiagnosticDescriptor</code>, which provides Visual Studio the description of your diagnostic and the <code>SupportedDiagnostics</code> property which indicates which diagnostics are supported by this analyzer. This is where VS gets the information to show the user about your diagnostic.</p>
 <pre><code>internal static DiagnosticDescriptor Rule = new DiagnosticDescriptor(DiagnosticId, Title, MessageFormat, Category, DiagnosticSeverity.Warning, isEnabledByDefault: true, description: Description);
 

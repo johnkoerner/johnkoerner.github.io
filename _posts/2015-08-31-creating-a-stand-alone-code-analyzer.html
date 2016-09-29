@@ -24,7 +24,7 @@ tags:
 ---
 <p>Many of my past posts have covered the process of creating an analyzer that is part of a Visual Studio addin or nuget package. However, there are times that you might want to just create a command line utility to do some analysis of a project. This type of project is very useful in prototyping out ideas or writing a one off utility to get an idea of the state of a solution. It can also be very useful for consultants wanting to run a custom set of tools against customer solutions.</p>
 <p>To create a stand alone code analyzer, you can select the Stand-Alone Code Analysis Tool project template from the Extensibility sections of the new project window.</p>
-<p><a href="https://johnkoerner.com/wp-content/uploads/2015/08/NewStandAloneProject.png"><img src="https://johnkoerner.com/wp-content/uploads/2015/08/NewStandAloneProject.png" alt="NewStandAloneProject" width="1413" height="980" class="alignnone size-full wp-image-1358" /></a></p>
+<p><a href="/content/NewStandAloneProject.png"><img src="/content/NewStandAloneProject.png" alt="NewStandAloneProject" width="1413" height="980" class="alignnone size-full wp-image-1358" /></a></p>
 <p>At this point, you just have a basic console application that is referencing the code analysis DLLs. To start analyzing a project, you need to load it up. To do this, we will create a MSBuildWorkSpace and load the solution file:</p>
 <pre><code>var ws = Microsoft.CodeAnalysis.MSBuild.MSBuildWorkspace.Create();
 var soln = ws.OpenSolutionAsync(@"Z:\Dev\Temp\SimpleWinformsTestApp\SimpleWinformsTestApp.sln").Result;

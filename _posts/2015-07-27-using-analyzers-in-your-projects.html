@@ -22,13 +22,13 @@ tags:
 ---
 <p>While many of my posts cover the basics of creating analyzers and digging into the syntax, this post is going to focus on how to add existing analyzers to your projects. There has already been a great deal of work done by many people to create a wide array of analyzers and you should take advantage of those on top of creating your own analyzers.</p>
 <p>The easiest way to add analyzers to your project is to obtain them via Nuget. A few popular analyzers include the Microsoft.AnalyzerPowerPack and <a href="https://github.com/DotNetAnalyzers/StyleCopAnalyzers">StyleCop.Analyzers</a>. Simply open up the Nuget package manager and search for the analyzer that you want to install.</p>
-<p><a href="https://johnkoerner.com/wp-content/uploads/2015/07/NugetPackageManager.png"><img src="https://johnkoerner.com/wp-content/uploads/2015/07/NugetPackageManager.png" alt="NugetPackageManager" width="814" height="517" class="alignnone size-full wp-image-1221" /></a></p>
+<p><a href="/content/NugetPackageManager.png"><img src="/content/NugetPackageManager.png" alt="NugetPackageManager" width="814" height="517" class="alignnone size-full wp-image-1221" /></a></p>
 <p>Once installed, you will see the default settings that the analyzer developer decided upon for severity of the violation. Your code may end up looking something like this:</p>
-<p><a href="https://johnkoerner.com/wp-content/uploads/2015/07/AnalyzerIssues.png"><img src="https://johnkoerner.com/wp-content/uploads/2015/07/AnalyzerIssues.png" alt="AnalyzerIssues" width="388" height="325" class="alignnone size-full wp-image-1223" /></a></p>
+<p><a href="/content/AnalyzerIssues.png"><img src="/content/AnalyzerIssues.png" alt="AnalyzerIssues" width="388" height="325" class="alignnone size-full wp-image-1223" /></a></p>
 <p>Luckily, you have full control over each and every analyzer that is provided to you and you can decide what should be reported and the severity of the violation. Under your project references, you will see a new node named <code>Analyzers</code>.</p>
-<p><a href="https://johnkoerner.com/wp-content/uploads/2015/07/ProjectHierarchy.png"><img src="https://johnkoerner.com/wp-content/uploads/2015/07/ProjectHierarchy.png" alt="ProjectHierarchy" width="285" height="147" class="alignnone size-full wp-image-1224" /></a></p>
+<p><a href="/content/ProjectHierarchy.png"><img src="/content/ProjectHierarchy.png" alt="ProjectHierarchy" width="285" height="147" class="alignnone size-full wp-image-1224" /></a></p>
 <p>You can right click on this node and select the <code>Open Active Rule Set</code> option. This will bring up a dialog that lets you configure the rules.</p>
-<p><a href="https://johnkoerner.com/wp-content/uploads/2015/07/RulesetWindow.png"><img src="https://johnkoerner.com/wp-content/uploads/2015/07/RulesetWindow.png" alt="RulesetWindow" width="814" height="536" class="alignnone size-full wp-image-1225" /></a></p>
+<p><a href="/content/RulesetWindow.png"><img src="/content/RulesetWindow.png" alt="RulesetWindow" width="814" height="536" class="alignnone size-full wp-image-1225" /></a></p>
 <p>You'll notice an information bar at the top indicating that you are viewing the default ruleset. If you make any modifications, then it those changes will be persisted to a new file named <code>&lt;projectname&gt;.ruleset</code>. From this window, you can change the behavior of rules. You have the following options for each rule:</p>
 <table>
 <thead>

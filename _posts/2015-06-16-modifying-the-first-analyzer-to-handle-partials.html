@@ -20,9 +20,9 @@ tags:
 - Code Analysis
 - Roslyn
 ---
-<p><a href="https://johnkoerner.com/csharp/creating-your-first-code-analyzer/">Last time</a> we talked about the basics of creating an analyzer. Now that we have some working code, let's tweak it a bit. We're going start by fixing a small issue with the default code to update it to handle partial classes.</p>
+<p><a href="/content/creating-your-first-code-analyzer/">Last time</a> we talked about the basics of creating an analyzer. Now that we have some working code, let's tweak it a bit. We're going start by fixing a small issue with the default code to update it to handle partial classes.</p>
 <p>Let's look for a minute at how our current analyzer handles partial classes. I created a file with the partial class <code>Foo</code> declared multiple times. As you see, it only reports the diagnostic on one of the two declared instances.</p>
-<p><img src="https://johnkoerner.com/wp-content/uploads/2015/06/PartialClass.png" alt="PartialClass" width="634" height="286" class="size-full wp-image-1090" /></p>
+<p><img src="/content/PartialClass.png" alt="PartialClass" width="634" height="286" class="size-full wp-image-1090" /></p>
 <p>Looking into the analyzer code, its pretty easy to see why. If you look at the <code>AnalyzeSymbol</code> method, when the diagnostic is created, it uses the first location to report the diagnostic.</p>
 <pre><code>private static void AnalyzeSymbol(SymbolAnalysisContext context)
 {
@@ -59,5 +59,5 @@ tags:
 }
 </code></pre>
 <p>Running the analyzer project again, you will now see that the diagnostic is reported on both of the declarations of the partial class.</p>
-<p><img src="https://johnkoerner.com/wp-content/uploads/2015/06/PartialClassFixed.png" alt="PartialClassFixed" width="421" height="230" class="size-full wp-image-1092" /></p>
+<p><img src="/content/PartialClassFixed.png" alt="PartialClassFixed" width="421" height="230" class="size-full wp-image-1092" /></p>
 <p>The important lesson to take away here is that there are a lot of ways to do things in C# and when writing an analyzer you need to consider that. Partials are a crucial part of the framework and failing to account for them in your analyzer will leave a small, but sometimes annoying, hole in your analyzers coverage.</p>

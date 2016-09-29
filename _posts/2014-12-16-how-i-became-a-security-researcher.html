@@ -21,9 +21,9 @@ tags: []
 <p>To be clear, I don't consider myself a security researcher, rather I am a programmer who happens to dabble in security research. Maybe this is a little bit of <a href="http://www.hanselman.com/blog/ImAPhonyAreYou.aspx">imposter syndrome</a> kicking in, but I really think I just know enough to be dangerous.</p>
 <p>A few months back I learned of the <a href="http://technet.microsoft.com/en-us/library/dn800983.aspx">Online Services Bug Bounty</a> program Microsoft was offering. I decided to give it a go. I am always looking for authorized hacking opportunities and really wasn't expecting anything to come of it. I created my test tenants and started playing around. I decided to focus on XSS vulnerabilities, as that is something I am pretty comfortable with and is pretty easy to test client side. Whenever I have tested for XSS vulnerabilities, I have always found that dialog windows tend to be some of the biggest culprits, so I honed in on those in my test tenant.</p>
 <p>Eventually I stumbled across an OWA dialog that wasn't escaping strings. I was easily able to generate this (URLs hidden to protect the innocent):</p>
-<p><img alt='' class='alignnone size-full wp-image-959' src='https://johnkoerner.com/wp-content/uploads/2014/12/img_548fac4a5d9a0.png' /></p>
+<p><img alt='' class='alignnone size-full wp-image-959' src='/content/img_548fac4a5d9a0.png' /></p>
 <p>And then with a little more tweaking, this:</p>
-<p><img alt='' class='alignnone size-full wp-image-961' src='https://johnkoerner.com/wp-content/uploads/2014/12/img_548facce4903c.png' /></p>
+<p><img alt='' class='alignnone size-full wp-image-961' src='/content/img_548facce4903c.png' /></p>
 <p>It was clear I had found an XSS vulnerability. I followed the submission instructions on the bug bounty page and waited to hear back. Within a few days, I got an email from the Microsoft security team indicating they had forwarded the bug to the product team. About a week after that I received confirmation that the product team had reproduced the bug and were working on a fix. Here is the timeline for the fix:</p>
 <pre><code>Oct. 9 (Thursday)   - Reported Bug
 Oct. 13 (Monday)    - Microsoft confirmed receipt of bug 
