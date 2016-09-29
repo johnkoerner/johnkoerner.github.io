@@ -163,4 +163,4 @@ if (name == null || !name.Equals("ToDictionary"))
 }
 </code></pre>
 <p>That is all you need to update to get a functioning analyzer that will handle the <code>ToDictionary</code> calls on an IEnumerable to ensure that you have dictionaries that explicitly define their string comparers. Obviously, this analyzer isn't perfect as it technically catches any method called <code>ToDictionary</code> regardless if the method is the <code>IEnumerable</code> <code>ToDictionary</code> or some other <code>ToDictionary</code>. I'll leave that fix as an exercise for the reader :).</p>
-<p><em>Image Credit: <a href="https://flic.kr/p/9oWMQ9">Caleb Roenigk</a> via <a href="https://creativecommons.org/licenses/by/2.0/">Creative Commons</a></em></p>
+
