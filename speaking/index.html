@@ -1,0 +1,10 @@
+---
+layout: full
+section: home
+---
+    <section>
+      {% capture speaking_include %}{% include speaking.md %}{% endcapture %}
+      <div class="page-content">
+        {{ speaking_include | markdownify }}
+      </div>
+    </section>
