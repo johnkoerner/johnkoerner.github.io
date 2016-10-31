@@ -32,7 +32,7 @@ $border-color:          #666;
 $code-border-color:     #333;
 $blockquote-left-color: #F47920;
 $blockquote-bg-color:   #141414;
-
+$code-highlighter-rouge-bg-color: #222222;
 
 // Width of the content area
 $content-width:         1000px;
@@ -56,3 +56,8 @@ $on-big:                1500px;
         "layout",
         "syntax-highlighting"
 ;
+
+.highlighter-rouge
+{
+    background-color: #2B2B2B;
+}
