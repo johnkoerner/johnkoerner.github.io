@@ -18,6 +18,8 @@ tags:
 ---
 One of the biggest complaints I hear from teams about CI is that it is too much work.  While getting it perfect can be a lot of work, getting started couldn't be easier.  
 
+I am going to demonstrate continuously building a C# project using Jenkins as our CI host.
+
 To get started we'll need a machine to be our build agent.  I am going to create a VM in Azure to be my build agent. Since I am building a C# project, I am going to choose the template that already has Visual Studio 2017 installed on it. But this could be any machine. It could be an extra machine you have sitting under your desk or a virtual machine in your own datacenter.
 
 ![Azure template image](/content/VS2017AzureTemplate.png)
