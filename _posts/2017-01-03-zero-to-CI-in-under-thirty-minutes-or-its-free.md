@@ -51,7 +51,7 @@ cd UnitTests
 dotnet test
 ```
 
-Save the job.  Then click the `Build Now` button on the left hand side. This will start a job which will appear in the `Build History` portion of the page. You can click on the build number to get more information about the build.  The most useful information in here is the console. If you click on the `Console Output` you can see the full console output of your build.  If this is your first build on the machine, you will see information about populating your local cache for the first time and then you should see the project build output, and finally you should see the tests run and see them all pass.
+Save the job.  Then click the `Build Now` button on the left hand side. This will start a job which will appear in the `Build History` portion of the page. You can click on the build number to get more information about the build.  The most useful information in here is the console. If you click on the `Console Output` you can see the full console output of your build. Since this is your first build on the machine, you will see information about populating your local cache for the first time and then you should see the project build output, and finally you should see the tests run and see them all pass.
 
 At this point, we have a build server that builds our project on demand, but not continuously.  To set that up, we can go back to the project page and select the `Configure` option. We'll use the `Poll SCM` option to configure the job to poll for changes from GitHub every 15 minutes. In the `Schedule` box, enter the following value
 
@@ -69,6 +69,6 @@ You now have a build server that will build within 15 minutes of a change to the
 >
 >*Q:But John, why did you ignore webhooks?*
 >
->A: While setting up webhooks is very straightforward, securing a Jenkins installation to be accessible via the internet is another thing altogether.  I decided that using polling was a better approach than teaching people to setup an insecure Jenkins installation and having them get hacked.
+>A: While setting up webhooks is very straightforward, securing a Jenkins installation to be accessible via the internet is another thing altogether.  I decided that using polling was a better approach than teaching people to setup an insecure Jenkins installation and having them get hacked. I'll probably have a few more posts where I cover setting up webhooks for your Jenkins jobs.
 
 
