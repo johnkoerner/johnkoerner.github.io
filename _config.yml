@@ -7,7 +7,11 @@ github_username:  johnkoerner
 stackoverflow_link: users/573218/john-koerner
 # Build settings
 markdown: kramdown
-theme: minima
+kramdown:
+  input: GFM
+  parse_block_html: true
+  #parse_span_html: true
+#theme: minima
 permalink:     /:categories/:title/
 
 disqus: johnkoernersblog
