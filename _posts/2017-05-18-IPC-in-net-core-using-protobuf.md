@@ -17,11 +17,11 @@ tags:
 - Visual Studio 2017
 - dotnetcore
 ---
-In the past, I have used WCF to handle inter-process communication (IPC) between various separate components of my client applications. Since .Net Core [doesn't yet support](https://github.com/dotnet/wcf/issues/1200) WCF server side code, I had to look into alternatives.  The two main approaches to this that I have found are `TCPServer` and `NamedPipeServerStream`. [Other's](http://www.c-sharpcorner.com/article/building-a-tcp-server-in-net-core-on-ubuntu/) have covered the TCP approach, so I wanted to see what could be done with the `NamedPipeServerStream`.  
+In the past, I have used WCF to handle inter-process communication (IPC) between various separate components of my client applications. Since .Net Core [doesn't yet support](https://github.com/dotnet/wcf/issues/1200) WCF server side code, I had to look into alternatives.  The two main approaches to this that I have found are `TCPServer` and `NamedPipeServerStream`. [Others](http://www.c-sharpcorner.com/article/building-a-tcp-server-in-net-core-on-ubuntu/) have covered the TCP approach, so I wanted to see what could be done with the `NamedPipeServerStream`.  
 
-I started reading the [MSDN documentation](https://msdn.microsoft.com/en-us/library/bb546085(v=vs.110).aspx) on the basics of IPC with named pipes and found that it worked with .Net Core 2.0 with no changes. This is the true benefit of .Net Core.  An older article about IPC is still completely relevant even though the code is now running on a Mac instead of a Windows Machine.  One thing I didn't like too much about that article was the `StreamString` class and I wanted to see what I could due with plain old C# objects.
+I started reading the [MSDN documentation](https://msdn.microsoft.com/en-us/library/bb546085(v=vs.110).aspx) on the basics of IPC with named pipes and found that it worked with .Net Core 2.0 with no changes. This is the true benefit of .Net Core.  An older article about IPC is still completely relevant even though the code is now running on a Mac instead of a Windows Machine.  One thing I didn't like too much about that article was the `StreamString` class and I wanted to see what I could do with plain old C# objects.
 
-I decided to start try out [Protobuf](https://github.com/mgravell/protobuf-net). I had heard about it in the past and figured this would be a good foray into learning more about it.  Since I was developing a client and a server, I decided I would start with the API and put that into a shared class project. So I created a `Common` project and defined a `Person` class in there:
+I decided to start try out [Protobuf](https://github.com/mgravell/protobuf-net). I had heard about it in the past and figured this would be a good foray into learning more about it.  Since I was developing a client and a server, I decided I would start with the API and put that into a shared class project. So I created a `Common` project, added a reference to protobuf, and defined a `Person` class in there:
 
 	[ProtoContract]
     public class Person
@@ -63,6 +63,8 @@ I am simply defining the `NamedPipeServerStream` to listen on a pipe named "MyTe
     }
 
 Once I connect, I then use protobuf's `Serializer.Deserialize` method to read from the stream and deserialize the person object.  That's it.  I am passing data from one process to another in .Net core.  If you are using .Net Core 1.x, you will need to explicitly add a reference to the `System.IO.Pipes` nuget package.  And for both 1.x and 2.0 .net core, you need to add a nuget reference to protobuf. 
+
+Even though this is a basic example, it does demonstrate the functionality and could be easily extended to handle much more complex scenarios.
 
 A fully working solution for this can be found as a sample GitHub [project](https://github.com/johnkoerner/SimpleIPCDotNetCore). There appear to be other .Net Core/Standard projects([1](https://github.com/MhAllan/TcpServiceCore), [2](https://github.com/leuchterag/Net.Ipc)) attempting to better facilitate IPC and it will be interesting to see how they mature with the ecosystem. My hope is that some flavor of WCF server makes its way over to .Net core, to make porting code that much easier.
 
