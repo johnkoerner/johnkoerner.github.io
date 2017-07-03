@@ -71,27 +71,28 @@ On Windows it is common to use [Environment.SpecialFolder](https://msdn.microsof
 
 The code for this is pretty straightforward. I enumerate over the possible enum values and output them to a CSV. 
 
-        static void Main(string[] args)
-        {
-            StringBuilder sb = new StringBuilder();
-            foreach (Environment.SpecialFolder sf in Enum.GetValues(typeof(System.Environment.SpecialFolder)))
-            {
-                sb.AppendLine($"{sf.ToString()}, {Environment.GetFolderPath(sf)}");
-            }
-            var path = System.IO.Path.GetDirectoryName(Assembly.GetExecutingAssembly().FullName);
-            var fileName = GetFileName();
-            var filePath = System.IO.Path.Combine(path, $"{fileName}.csv");
-            System.IO.File.WriteAllText(filePath, sb.ToString());
-        }
+``` csharp
+static void Main(string[] args)
+{
+    StringBuilder sb = new StringBuilder();
+    foreach (Environment.SpecialFolder sf in Enum.GetValues(typeof(System.Environment.SpecialFolder)))
+    {
+        sb.AppendLine($"{sf.ToString()}, {Environment.GetFolderPath(sf)}");
+    }
+    var path = System.IO.Path.GetDirectoryName(Assembly.GetExecutingAssembly().FullName);
+    var fileName = GetFileName();
+    var filePath = System.IO.Path.Combine(path, $"{fileName}.csv");
+    System.IO.File.WriteAllText(filePath, sb.ToString());
+}
 
-        static string GetFileName()
-        {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                return "Win";
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                return "OSX";
+static string GetFileName()
+{
+    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        return "Win";
+    else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        return "OSX";
 
-            return "Linux";
-        }
-
+    return "Linux";
+}
+```
 If you just want to pull the code and run it, I have a copy up on [GitHub](https://github.com/johnkoerner/NetCoreSpecialFolders/blob/master/Program.cs). As you can see, some special folders have a direct mapping to Mac OSX and others do not.  When you think about it, they all make sense.  As long as you understand the values you will get back in the various scenarios, you can use the values that are appropriate for your application.
