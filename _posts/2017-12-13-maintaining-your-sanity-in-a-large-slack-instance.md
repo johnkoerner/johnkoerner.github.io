@@ -53,7 +53,7 @@ All other channels will only display when there is new content in those channels
 
 Muting a channel will prevent it from appearing unread, but you may still get badges by the channel for `@here` or `@channel` messages. For channels where `@here/@channel` get annoying, you can even mute those alerts in the channel notification preferences:
 
-![Mute Here](/conent/MuteHere.png)
+![Mute Here](/content/MuteHere.png)
 
 You can even star a channel you have muted, so it will appear in your list at all times, but you will never receive a notification from the channel. This is useful for those chatty channels that you just want to check in with from time to time.
 
