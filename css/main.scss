@@ -89,3 +89,8 @@ $on-big:                1500px;
        url('../fonts/Source-Sans-Pro-600/Source-Sans-Pro-600.ttf') format('truetype'),
        url('../fonts/Source-Sans-Pro-600/Source-Sans-Pro-600.svg#SourceSansPro') format('svg');
 }
+
+code
+{
+    white-space: pre-wrap;
+}
