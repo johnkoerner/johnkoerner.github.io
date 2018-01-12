@@ -25,6 +25,7 @@ Can you lure the cat out of the hiding place?
 
 ```
 [meow.pdf](/content/meow.pdf)
+
 Approach
 ---
 Opening the PDF in a hex editor and searching for the string `image` you see that there appears to be multiple images in the PDF.
