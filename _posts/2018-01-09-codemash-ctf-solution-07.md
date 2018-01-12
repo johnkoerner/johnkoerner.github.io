@@ -33,9 +33,7 @@ Hint: Offset by 2
 
 Approach
 ---
-This one is tricky. The offset 2 indicates that there is a tool out there that takes an input. Looking at the text, it contains `c`, `m`, `1`, and `8`, so it may just be a scramble of the text.  After playing with a lot of tools online, I found a super tool that has all sorts of cipher varieties:
-
-https://www.dcode.fr/
+This one is tricky. The offset 2 indicates that there is a tool out there that takes an input. Looking at the text, it contains `c`, `m`, `1`, and `8`, so it may just be a scramble of the text.  After playing with a lot of tools online, I found a [super-tool](https://www.dcode.fr/) that has all sorts of cipher varieties:
 
 After that, another hint came along from the @codemashctf twitter account:
 
@@ -44,9 +42,8 @@ After that, another hint came along from the @codemashctf twitter account:
 </blockquote>
 <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
-The hint was subtle, but the `On the fence` portion just didn't fit.  A quick search of the ciphers that contain fence, and you find the [Rail Fence](https://en.wikipedia.org/wiki/Rail_fence_cipher) cipher.  I found a tool that included the offset:
+The hint was subtle, but the `On the fence` portion just didn't fit.  A quick search of the ciphers that contain fence, and you find the [Rail Fence](https://en.wikipedia.org/wiki/Rail_fence_cipher) cipher.  I found [a tool](https://www.geocachingtoolbox.com/index.php?page=railFenceCipher) that included the offset option.
 
-https://www.geocachingtoolbox.com/index.php?page=railFenceCipher
 
 Setting the offset to 2 results in:
 
