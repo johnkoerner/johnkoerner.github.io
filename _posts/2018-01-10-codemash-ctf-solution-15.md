@@ -70,8 +70,8 @@ It is a 10 digit number, where every digit is only used once and the first N dig
 
 Plugging those requirements into google yield lots of results.
 
-- [Stack Exchange Explanation](https://mindyourdecisions.com/blog/2016/04/10/find-the-10-digit-number-where-n-digits-are-divisible-by-n-sunday-puzzle/)
-- [You tube explanation](https://mindyourdecisions.com/blog/2016/04/10/find-the-10-digit-number-where-n-digits-are-divisible-by-n-sunday-puzzle/)
+- [Stack Exchange Explanation](https://puzzling.stackexchange.com/questions/3017/10-digit-number-where-first-n-digits-are-divisible-by-n)
+- [Explanation with Video](https://mindyourdecisions.com/blog/2016/04/10/find-the-10-digit-number-where-n-digits-are-divisible-by-n-sunday-puzzle/)
 
 Our number is 3816547290. Put that in the form and it takes you a page named
 
