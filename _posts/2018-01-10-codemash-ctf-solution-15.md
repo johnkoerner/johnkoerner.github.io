@@ -33,7 +33,7 @@ The login page contains a button and two inputs. When you put in text and hit th
 
 Looking at the javascript for the button click takes us to a function that does the following:
 
-```
+``` javascript
 function checkEntries() {
     var u = document.getElementById('puser').value;
     var p = document.getElementById('ppass').value;
@@ -61,6 +61,8 @@ function checkEntries() {
     }
 }
 ```
+
+Looking at the code, the username needs to be `cavs` and the password is a 10 digit number.
 
 I started writing a brute force algorithm and trying to figure out the number that way, but I decided to see what I could find about the properties of the number.
 

@@ -19,6 +19,8 @@ Last year at [Codemash](https://codemash.org) they had the first Capture the Fla
 
 Now that the CTF is over and the winner has been crowned, I thought I would share my solutions, so others can learn and share how they solved the problems.
 
+I created a [GitHub repo](https://github.com/johnkoerner/2018CodeMashCTF) for any of the custom code I wrote for the CTF.
+
 1. [Do you like my Style?](/codemash/codemash-ctf-solution-01/)
 2. [Hobo Robo](/codemash/codemash-ctf-solution-02/)
 3. [1337 Riddler](/codemash/codemash-ctf-solution-03/)
