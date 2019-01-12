@@ -29,7 +29,7 @@ Opening the file with a tool other than a PDF viewer, could be helpful.
 
 Approach
 ---
-This is a password protected PDF, so we need to crack that first. I downloaded `pdfcrack` on my kali VM and ran the following comand (using one of the wordlists on the machine):
+This is a password protected PDF, so we need to crack that first. I downloaded `pdfcrack` on my kali VM and ran the following command (using one of the wordlists on the machine):
 
 ```
 pdfcrack ./parrot.pdf -w /usr/share/wordlists/sqlmap.txt
