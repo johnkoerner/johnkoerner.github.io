@@ -62,10 +62,10 @@ Clear text : b'cm19-rRRr-SSSs-AaaA-f41l'
 ```
 </div>
 
-Since the tool also uses FactorDB to lookup the modulus, the comand line can be even more simplified:
+Since the tool also uses FactorDB to lookup the modulus, the command line can be even more simplified:
 ```
 ./RsaCtfTool.py --uncipherfile ../flag.enc --publickey ../key.pem
-[+] Clear text : b'cm19-rRRr-SSSs-AaaA-f41l'
+[+] Clear text : 'cm19-rRRr-SSSs-AaaA-f41l'
 ```
 
 

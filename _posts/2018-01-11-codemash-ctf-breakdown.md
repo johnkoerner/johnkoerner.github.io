@@ -15,7 +15,7 @@ tags:
 - codemash
 - fun
 ---
-Last year at [Codemash](https://codemash.org) they had the first Capture the Flag (CTF) and it was very successful. They decided to bring it back for 2018 and the format was changed a bit. The [official site](https://codemashctf.com) has all of the rules and information, but the basics of it were that a single puzzle was released at midnight in the 2 weeks leading up to the conference. This allowed people to solve them at a more leisurely pace and not have to cram them in during the confernece.  Also the puzzles this year are a bit easier (but still challenging), which makes them more accessible to the entire audience of codemash.
+Last year at [Codemash](https://codemash.org) they had the first Capture the Flag (CTF) and it was very successful. They decided to bring it back for 2018 and the format was changed a bit. The [official site](https://codemashctf.com) has all of the rules and information, but the basics of it were that a single puzzle was released at midnight in the 2 weeks leading up to the conference. This allowed people to solve them at a more leisurely pace and not have to cram them in during the conference.  Also the puzzles this year are a bit easier (but still challenging), which makes them more accessible to the entire audience of codemash.
 
 Now that the CTF is over and the winner has been crowned, I thought I would share my solutions, so others can learn and share how they solved the problems.
 
