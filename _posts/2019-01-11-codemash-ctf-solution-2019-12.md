@@ -65,7 +65,7 @@ main endp
 
 There is also a function called `flag` in the binary, which reads a file called flag.txt:
 
-```
+``` asm
 push    rbp
 mov     rbp, rsp
 sub     rsp, 410h
